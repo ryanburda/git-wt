@@ -1,1 +1,258 @@
 # git-ext
+
+Git external commands for a worktree-first workflow.
+
+Git picks up any executable named `git-<name>` on your `PATH` and makes it
+available as `git <name>`. This repo ships the following commands:
+
+| Command | Purpose |
+| --- | --- |
+| `git clone-bare` | Clone a repo as a bare repo laid out for worktrees |
+| `git worktree-add` | Add a worktree in that layout and run project setup |
+
+## Install
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/ryanburda/git-ext/main/install.sh | sh
+```
+
+The script clones this repo to `~/.local/share/git-ext` and symlinks both
+commands into `~/.local/bin`. Re-running it updates the checkout in place.
+
+Make sure `~/.local/bin` is on your `PATH`. The installer warns you if it isn't:
+
+```sh
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+Verify:
+
+```sh
+git clone-bare      # prints usage
+git worktree-add    # prints usage
+```
+
+The commands themselves are zsh scripts, so zsh must be installed. The
+installer is POSIX `sh`, so it runs under whatever shell you pipe it to.
+
+Overrides, if the defaults don't suit you:
+
+| Variable | Default |
+| --- | --- |
+| `GIT_EXT_HOME` | `~/.local/share/git-ext` (or `$XDG_DATA_HOME/git-ext`) |
+| `BIN_DIR` | `~/.local/bin` |
+| `GIT_EXT_REPO` | `https://github.com/ryanburda/git-ext.git` |
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/ryanburda/git-ext/main/install.sh | BIN_DIR=~/bin sh
+```
+
+### Uninstall
+To uninstall, delete the two symlinks and the checkout, plus any completion links from the section below:
+
+```sh
+rm ~/.local/bin/git-clone-bare ~/.local/bin/git-worktree-add
+rm -rf ~/.local/share/git-ext
+```
+
+## Completions
+
+`completions/` holds shell completions for these git extensions.
+For example, `git worktree-add` has completions for the `<branch>` argument.
+
+```
+$ git worktree-add wt <TAB>
+feature/login  local-only  main  other  release-2.0
+```
+
+The installer leaves these files at `~/.local/share/git-ext/completions/`; each
+shell needs one line to pick them up.
+
+<details>
+<summary>zsh</summary>
+
+Source `git-ext.zsh` from `~/.zshrc`:
+
+```zsh
+source ~/.local/share/git-ext/completions/zsh/git-ext.zsh
+```
+
+It works wherever you put that line, including after `compinit` has already
+run: rather than relying on `compinit` to scan `fpath`, it autoloads the
+completion function itself. zsh dispatches an unknown git sub-command to a
+function named `_git-<sub-command>`, so `_git-worktree-add` has to keep its
+name but it does not have to be on `fpath` before `compinit`.
+
+It also registers descriptions, so the commands show up in `git <TAB>`.
+
+If your `.zshrc` sources a directory of extension scripts, symlink it in instead:
+
+```zsh
+ln -s ~/.local/share/git-ext/completions/zsh/git-ext.zsh ~/.zsh/zshrc_extensions/git-ext.zsh
+```
+
+</details>
+
+<details>
+<summary>bash</summary>
+
+With bash-completion installed, symlink the file into its user directory and it is loaded on demand:
+
+```sh
+mkdir -p ~/.local/share/bash-completion/completions
+ln -sfn ~/.local/share/git-ext/completions/bash/git-worktree-add \
+        ~/.local/share/bash-completion/completions/git-worktree-add
+```
+
+Without bash-completion, source it from `~/.bashrc` after git's own
+completion:
+
+```sh
+source ~/.local/share/git-ext/completions/bash/git-worktree-add
+```
+
+</details>
+
+<details>
+<summary>fish</summary>
+
+This file registers completions for `git` itself, so it has to be loaded
+before you complete a git command. `conf.d/` should be used instead of
+`completions/` (which fish only loads when completing a command of the same name):
+
+```fish
+ln -sfn ~/.local/share/git-ext/completions/fish/git-worktree-add.fish \
+        ~/.config/fish/conf.d/git-worktree-add.fish
+```
+
+</details>
+
+## Bare Repo Layout
+
+The `git clone-bare` and `git worktree-add` commands enforce one repo structure
+that has a bare repo at `.git`, with every worktree as a sibling directory beside it.
+
+```
+~/code/project_a/
+├── .git/          <- bare repo      (created by git clone-bare)
+├── main/          <- worktree       (created by git worktree-add)
+├── feature-a/     <- worktree
+└── feature-b/     <- worktree
+```
+
+## Usage
+
+```sh
+REPO_ROOT=~/code/project_a
+
+git clone-bare git@github.com:user/project_a.git "$REPO_ROOT"
+
+WT=$(git -C "$REPO_ROOT" worktree-add project_a main)
+cd "$WT"
+```
+
+### git clone-bare
+
+```
+git clone-bare <repo_url> [<root_path>]
+```
+
+Clones into `<root_path>/.git` as a bare repo. With no `<root_path>`, the
+project name is derived from the URL and created under the current directory,
+matching `git clone`'s behavior.
+
+A plain `git clone --bare` isn't usable for day-to-day development: it's built
+to be a server-side mirror, so it maps every upstream branch into
+`refs/heads/*` and has no local/remote distinction. This command restores it:
+
+- sets `remote.origin.fetch` to the standard `+refs/heads/*:refs/remotes/origin/*`
+- deletes every local branch except the default one
+- re-fetches, populating `refs/remotes/origin/*`
+
+The result is a bare repo whose refs look like a normal clone's, so upstream
+branches are `origin/<branch>` and local branches are yours.
+
+### git worktree-add
+
+```
+git worktree-add <worktree_name> <branch>               # check out an existing branch
+git worktree-add <worktree_name> <branch> <new_branch>  # create new_branch off branch
+```
+
+```sh
+git worktree-add wt1 main             # main checked out at $REPO_ROOT/wt1
+git worktree-add wt1 main feature     # branch "feature" off main at $REPO_ROOT/wt1
+```
+
+The worktree is always created as a sibling of the bare `.git` directory,
+regardless of where in the repo you run the command from.
+
+After creating it, the command sets the branch's upstream to `origin/<branch>` if
+that remote branch exists, then runs the project setup hook if there is one.
+
+### Worktree setup hook
+
+If `<project_root>/.worktree/setup` exists and is executable, it runs from
+inside each newly created worktree.
+
+Note the location: `.worktree/` sits next to the bare `.git` directory, at the
+project root, *not* inside a worktree, and therefore not tracked by the repo.
+It's per-clone, per-machine configuration, which is what makes it the right
+place for the untracked odds and ends a fresh checkout needs:
+
+```
+~/code/project_a/
+├── .git/
+├── .worktree/
+│   └── setup      <- runs in each new worktree
+├── wt1/
+└── wt2/
+```
+
+```sh
+#!/bin/sh
+# ~/code/project_a/.worktree/setup
+cp ~/code/project_a/.worktree/.env .env
+npm install
+```
+
+## Keeping your setup reproducible
+
+The `.worktree/` directory is deliberately outside the project's own repo,
+which means nothing is tracking it. Left alone, the setup script you wrote
+only exists on this machine and vanishes if anything were to happen to it.
+
+Therefore, it is a good idea to keep repo setup scripts in a dedicated private
+repo instead. A `repos` repo, holding one directory per project, plus a top-level
+script that recreates every clone from scratch is an easy, version controlled, way
+to setup all of your projects on a fresh machine:
+
+```
+~/repos/                  <- private git repo
+├── setup                 <- recreates every project below
+├── project_a/
+│   ├── setup             <- becomes project_a's .worktree/setup
+│   └── .env
+└── project_b/
+    └── setup
+```
+
+Symlink each project directory into place as its `.worktree`, so the setup
+script and the untracked files it copies travel together:
+
+```sh
+ln -s ~/repos/project_a ~/code/project_a/.worktree
+```
+
+The top-level `~/repos/setup` then does the whole job end to end of cloning,
+linking, and creating the first worktree:
+
+```sh
+#!/bin/sh
+# ~/repos/setup
+set -e
+
+git clone-bare git@github.com:user/project_a.git ~/code/project_a
+ln -sfn ~/repos/project_a ~/code/project_a/.worktree
+git -C ~/code/project_a worktree-add main main
+```

@@ -1,0 +1,29 @@
+#compdef git-worktree-add
+#
+# zsh completion for `git worktree-add` and for the standalone
+# `git-worktree-add` command.
+#
+# zsh's _git dispatches an unknown sub-command to a function named
+# `_git-<sub-command>`, so this file has to keep the name `_git-worktree-add`
+# and sit on your fpath.
+
+__git_ext_worktree_add_branches() {
+  local -a branches
+  # Local branches, plus remote branches with the remote name stripped:
+  # `git worktree add` resolves a bare `topic` to `origin/topic` itself.
+  branches=(
+    ${(f)"$(git for-each-ref --format='%(refname:short)' refs/heads 2>/dev/null)"}
+    ${(f)"$(git for-each-ref --format='%(refname:strip=3)' refs/remotes 2>/dev/null)"}
+  )
+  branches=(${(u)branches:#(HEAD|)})
+  _describe -t branches branch branches
+}
+
+_git-worktree-add() {
+  _arguments -S \
+    '1:worktree name:' \
+    '2:branch:__git_ext_worktree_add_branches' \
+    '3:new branch:'
+}
+
+_git-worktree-add "$@"

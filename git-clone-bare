@@ -1,0 +1,69 @@
+#!/bin/zsh
+# Clone a repo as a bare repo.
+#
+# Works with `git worktree-add` to enforce a repo folder structure
+# that accommodates worktrees:
+#
+#   $root_path/
+#   ├── .git/              <- bare repo (created by clone-bare)
+#   ├── feature-a/         <- worktree (created by worktree-add)
+#   └── feature-b/         <- worktree (created by worktree-add)
+#
+# Usage: git clone-bare <repo_url> [<root_path>]
+#
+# Using `git clone-bare` and `git worktree-add` together:
+# ``` sh
+# REPO_ROOT=~/code/project_a
+# git clone-bare git@github.com:user/project_a.git "$REPO_ROOT"
+# WT=$(git -C "$REPO_ROOT" worktree-add project_a main)
+# git -C "$REPO_ROOT" worktree lock "$WT"  # Lock the worktree (optional)
+# ```
+
+set -e
+
+if [[ $# -lt 1 || $# -gt 2 ]]; then
+    echo "Usage: git clone-bare <repo_url> [<root_path>]"
+    exit 1
+fi
+
+REPO_URL=$1
+
+if [[ -n "$2" ]]; then
+    ROOT_PATH=$2
+else
+    # Derive project name from URL, matching git clone behavior:
+    # strip trailing slashes, .git suffix, and take the basename.
+    PROJECT_NAME=$(basename "${REPO_URL}" .git)
+    ROOT_PATH="$(pwd)/${PROJECT_NAME}"
+fi
+
+BARE_DIR="${ROOT_PATH}/.git"
+
+if [[ -d "$BARE_DIR" ]]; then
+    echo "Bare repo already exists at ${BARE_DIR}, skipping clone."
+else
+    mkdir -p "${ROOT_PATH}"
+    git clone --bare "$REPO_URL" "$BARE_DIR"
+    # In a normal clone, git separates refs into:
+    #   - refs/heads/* (local branches)
+    #   - refs/remotes/origin/* (remote tracking branches)
+    #
+    # A bare repo was designed to be a server-side mirror - the central repo that
+    # people push to and pull from. There's no local/remote distinction because every
+    # branch *is* the authoritative copy. So `git clone --bare` maps everything
+    # into refs/heads/* with fetch = +refs/heads/*:refs/heads/*.
+    #
+    # The worktree-based workflow repurposes bare repos for local development,
+    # so we need the local/remote separation back. Fix the fetch refspec to
+    # use the standard refs/remotes/origin/* namespace.
+    git -C "$BARE_DIR" config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
+
+    # bare clone creates local branches for every remote branch.
+    # Remove all local branches except the default, then re-fetch into
+    # refs/remotes/origin/* using the corrected refspec.
+    DEFAULT_BRANCH=$(git -C "$BARE_DIR" symbolic-ref --short HEAD)
+    git -C "$BARE_DIR" for-each-ref --format='%(refname)' refs/heads/ \
+        | grep -v "^refs/heads/${DEFAULT_BRANCH}$" \
+        | while read -r ref; do git -C "$BARE_DIR" update-ref -d "$ref"; done
+    git -C "$BARE_DIR" fetch origin
+fi
