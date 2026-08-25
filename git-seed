@@ -23,13 +23,15 @@
 # re-run: an existing bare repo, worktree, or lock is left alone.
 #
 # Only <root_path>/.git and the worktree directory are written, so a project
-# root that already exists is fine. That matters for the `.worktree/setup`
-# hook, which `git worktree-add` runs from inside each new worktree: put it in
-# place *before* calling this, or it won't exist yet to be run.
+# root that already exists is fine.
 #
-#   mkdir -p ~/code/project_a
+# The project's `.worktree/setup` hook is not run here -- that's
+# `git worktree-setup`, kept separate so slow setup work stays opt-in. Because
+# it's a separate call, the hook can be linked in at any point before it:
+#
+#   WT=$(git seed git@github.com:user/project_a.git ~/code/project_a)
 #   ln -sfn ~/repos/project_a ~/code/project_a/.worktree
-#   git seed git@github.com:user/project_a.git ~/code/project_a
+#   git -C "$WT" worktree-setup
 #
 # Usage:
 #   git seed <repo_url> [<root_path>]

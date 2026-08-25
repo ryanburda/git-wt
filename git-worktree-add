@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Add a worktree and run project-specific setup.
+# Add a worktree in the layout `git clone-bare` creates.
 #
 # Works with `git clone-bare` to enforce a repo folder structure
 # that accommodates worktrees:
@@ -12,8 +12,9 @@
 # The worktree is created as a sibling of the .git bare repo directory,
 # regardless of where the command is run from within the repo.
 #
-# If a .worktree/setup script exists in the project root, it is executed
-# from within the new worktree after creation.
+# Creating the worktree is all this does. Preparing it -- installing deps,
+# copying fixtures, whatever the project needs -- is `git worktree-setup`,
+# kept separate so that potentially slow work isn't forced on every add.
 #
 # Prints the absolute path of the worktree on stdout. Adding a worktree that
 # already exists is a no-op that still prints the path and exits 0, so this is
@@ -81,12 +82,6 @@ if [[ -n "$WT_BRANCH" ]] && ! git -C "$WORKTREE_PATH" config "branch.${WT_BRANCH
     if git -C "$WORKTREE_PATH" show-ref --verify --quiet "$REMOTE_REF"; then
         git -C "$WORKTREE_PATH" branch --set-upstream-to="origin/${WT_BRANCH}" >&2
     fi
-fi
-
-SETUP_SCRIPT="${PROJECT_ROOT}/.worktree/setup"
-
-if [[ -f "$SETUP_SCRIPT" ]]; then
-    (cd "$WORKTREE_PATH" && exec "$SETUP_SCRIPT") >&2
 fi
 
 echo "$WORKTREE_PATH"

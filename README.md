@@ -8,7 +8,8 @@ available as `git <name>`. This repo ships the following commands:
 | Command | Purpose |
 | --- | --- |
 | `git clone-bare` | Clone a repo as a bare repo laid out for worktrees |
-| `git worktree-add` | Add a worktree in that layout and run project setup |
+| `git worktree-add` | Add a worktree in that layout |
+| `git worktree-setup` | Run a project's `.worktree/setup` hook in a worktree |
 | `git seed` | Clone a repo and grow its first worktree in one step |
 
 ## Install
@@ -32,6 +33,7 @@ Verify:
 git clone-bare      # prints usage
 git seed            # prints usage
 git worktree-add    # prints usage
+git worktree-setup  # runs the hook, if any
 ```
 
 The commands themselves are zsh scripts, so zsh must be installed. The
@@ -190,12 +192,32 @@ The worktree is always created as a sibling of the bare `.git` directory,
 regardless of where in the repo you run the command from.
 
 After creating it, the command sets the branch's upstream to `origin/<branch>` if
-that remote branch exists, then runs the project setup hook if there is one.
+that remote branch exists.
+
+Creating the worktree is all it does. Preparing that worktree is
+`git worktree-setup`, deliberately a separate command: setup can be slow, and
+adding a worktree shouldn't drag that along every time.
+
+### git worktree-setup
+
+```
+git worktree-setup [<worktree_path>]
+```
+
+Runs `<project_root>/.worktree/setup` from inside the given worktree, or the
+current one if no path is given. Does nothing, successfully, when the project
+has no hook -- so it's safe to call unconditionally.
+
+```sh
+WT=$(git seed git@github.com:user/project_a.git ~/code/project_a)
+ln -sfn ~/repos/project_a ~/code/project_a/.worktree
+git -C "$WT" worktree-setup
+```
 
 ### Worktree setup hook
 
-If `<project_root>/.worktree/setup` exists and is executable, it runs from
-inside each newly created worktree.
+`git worktree-setup` runs `<project_root>/.worktree/setup` from inside a
+worktree, if the project has one.
 
 Note the location: `.worktree/` sits next to the bare `.git` directory, at the
 project root, *not* inside a worktree, and therefore not tracked by the repo.
@@ -254,13 +276,10 @@ linking, and creating the first worktree:
 # ~/repos/setup
 set -e
 
-mkdir -p ~/code/project_a
+WT=$(git seed git@github.com:user/project_a.git ~/code/project_a)
 ln -sfn ~/repos/project_a ~/code/project_a/.worktree
-git seed git@github.com:user/project_a.git ~/code/project_a
+git -C "$WT" worktree-setup
 ```
 
-Note the order: `.worktree` has to be in place *before* the first worktree is
-created, or there is no setup hook to run yet. That works because
-`git seed` only writes `<project_root>/.git` and the worktree
-directory, leaving anything already in the project root untouched -- so
-creating the directory and linking the hook up front is safe.
+Because setup is its own step, the hook only has to be linked before
+`git worktree-setup` runs -- the order of the first two lines doesn't matter.

@@ -21,6 +21,7 @@ compdef _git-worktree-add git-worktree-add
 zstyle ':completion:*:*:git:*' user-commands \
     clone-bare:'clone a repo as a bare repo laid out for worktrees' \
     seed:'clone a repo and grow its first worktree in one step' \
-    worktree-add:'add a worktree and run project setup'
+    worktree-add:'add a worktree in that layout' \
+    worktree-setup:'run the project .worktree/setup hook in a worktree'
 
 unset _git_ext_root
