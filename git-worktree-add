@@ -15,7 +15,12 @@
 # If a .worktree/setup script exists in the project root, it is executed
 # from within the new worktree after creation.
 #
-# Prints the absolute path of the created worktree on success.
+# Prints the absolute path of the worktree on stdout. Adding a worktree that
+# already exists is a no-op that still prints the path and exits 0, so this is
+# safe to re-run -- setup scripts call it on every bootstrap.
+#
+# Diagnostics go to stderr, so `WT=$(git worktree-add ...)` only ever captures
+# the path.
 #
 # Usage:
 #   git worktree-add wt1 main          # checkout main in $root_path/wt1
@@ -32,7 +37,7 @@
 set -e
 
 if [[ $# -lt 2 || $# -gt 3 ]]; then
-    echo "Usage: git worktree-add <worktree_name> <branch> [<new_branch>]"
+    echo "Usage: git worktree-add <worktree_name> <branch> [<new_branch>]" >&2
     exit 1
 fi
 
@@ -41,7 +46,7 @@ BRANCH=$2
 NEW_BRANCH=$3
 
 if ! git rev-parse --git-dir > /dev/null 2>&1; then
-    echo "Error: not inside a git repository"
+    echo "Error: not inside a git repository" >&2
     exit 1
 fi
 
@@ -49,8 +54,17 @@ BARE_DIR=$(cd "$(git rev-parse --git-common-dir)" && pwd)
 PROJECT_ROOT="${BARE_DIR%/.git}"
 WORKTREE_PATH="${PROJECT_ROOT}/${WORKTREE_NAME}"
 
+# Re-adding an existing worktree is the normal case for a setup script that runs
+# on every bootstrap, not an error: report it on stderr, print the path, and exit
+# 0 exactly as a fresh add would. A path that exists but isn't a worktree of this
+# repo is a genuine name collision, and still fails.
 if [[ -d "$WORKTREE_PATH" ]]; then
-    echo "Error: ${WORKTREE_PATH} already exists"
+    if git worktree list --porcelain | grep -qFx "worktree ${WORKTREE_PATH}"; then
+        echo "Worktree already exists at ${WORKTREE_PATH}, skipping add." >&2
+        echo "$WORKTREE_PATH"
+        exit 0
+    fi
+    echo "Error: ${WORKTREE_PATH} already exists and is not a worktree of this repo" >&2
     exit 1
 fi
 
