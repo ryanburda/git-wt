@@ -62,7 +62,8 @@ rm -rf ~/.local/share/git-ext
 ## Completions
 
 `completions/` holds shell completions for these git extensions.
-For example, `git worktree-add` has completions for the `<branch>` argument.
+For example, `git worktree-add` completes the `<branch>` argument, and
+`git worktree-setup` completes the repo's worktrees.
 
 ```
 $ git worktree-add wt <TAB>
@@ -104,8 +105,10 @@ With bash-completion installed, symlink the file into its user directory and it 
 
 ```sh
 mkdir -p ~/.local/share/bash-completion/completions
-ln -sfn ~/.local/share/git-ext/completions/bash/git-worktree-add \
-        ~/.local/share/bash-completion/completions/git-worktree-add
+for c in git-worktree-add git-worktree-setup; do
+    ln -sfn ~/.local/share/git-ext/completions/bash/$c \
+            ~/.local/share/bash-completion/completions/$c
+done
 ```
 
 Without bash-completion, source it from `~/.bashrc` after git's own
@@ -113,6 +116,7 @@ completion:
 
 ```sh
 source ~/.local/share/git-ext/completions/bash/git-worktree-add
+source ~/.local/share/git-ext/completions/bash/git-worktree-setup
 ```
 
 </details>
@@ -125,8 +129,10 @@ before you complete a git command. `conf.d/` should be used instead of
 `completions/` (which fish only loads when completing a command of the same name):
 
 ```fish
-ln -sfn ~/.local/share/git-ext/completions/fish/git-worktree-add.fish \
-        ~/.config/fish/conf.d/git-worktree-add.fish
+for c in git-worktree-add git-worktree-setup
+    ln -sfn ~/.local/share/git-ext/completions/fish/$c.fish \
+            ~/.config/fish/conf.d/$c.fish
+end
 ```
 
 </details>

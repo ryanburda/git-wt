@@ -1,0 +1,51 @@
+# bash completion for `git worktree-setup` and for the standalone
+# `git-worktree-setup` command.
+#
+# git's own completion dispatches `git <sub-command>` to a function named
+# `_git_<sub_command>`, and asks bash-completion's lazy loader for a file named
+# `git-<sub-command>` when that function isn't defined yet. Naming this file
+# `git-worktree-setup` and defining `_git_worktree_setup` satisfies both.
+
+__git_ext_worktrees ()
+{
+	# Prefer git's own wrapper, which honors `git -C <dir>` and `--git-dir`.
+	local g=git
+	declare -f __git > /dev/null 2>&1 && g=__git
+
+	# Every worktree of the current repo except the bare one, which has no
+	# checkout to run a setup hook in.
+	$g worktree list --porcelain 2> /dev/null | awk '
+		/^worktree /{wt = substr($0, 10); bare = 0}
+		/^bare$/{bare = 1}
+		/^$/{if (wt != "" && !bare) print wt; wt = ""}
+		END{if (wt != "" && !bare) print wt}
+	'
+}
+
+_git_worktree_setup ()
+{
+	local cur=${COMP_WORDS[COMP_CWORD]}
+	local i idx=0
+
+	# Find the sub-command so argument positions come out the same whether we
+	# were reached as `git worktree-setup` or as `git-worktree-setup`.
+	for ((i = 0; i < COMP_CWORD; i++)); do
+		case ${COMP_WORDS[i]} in
+		worktree-setup | git-worktree-setup | */git-worktree-setup)
+			idx=$i
+			break
+			;;
+		esac
+	done
+
+	# [<worktree_path>] — only the one optional argument.
+	if ((COMP_CWORD - idx == 1)); then
+		COMPREPLY=($(compgen -W "$(__git_ext_worktrees)" -- "$cur"))
+	else
+		COMPREPLY=()
+	fi
+}
+
+# The `git worktree-setup` form is dispatched by git's completion; this covers
+# running the command directly.
+complete -F _git_worktree_setup git-worktree-setup

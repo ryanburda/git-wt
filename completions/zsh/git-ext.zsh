@@ -16,6 +16,8 @@ _git_ext_root=${0:A:h:h:h}
 fpath=($_git_ext_root/completions/zsh $fpath)
 autoload -Uz _git-worktree-add
 compdef _git-worktree-add git-worktree-add
+autoload -Uz _git-worktree-setup
+compdef _git-worktree-setup git-worktree-setup
 
 # Offer the commands, with descriptions, when completing `git <TAB>`.
 zstyle ':completion:*:*:git:*' user-commands \
