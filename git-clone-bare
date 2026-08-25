@@ -9,7 +9,19 @@
 #   ├── feature-a/         <- worktree (created by worktree-add)
 #   └── feature-b/         <- worktree (created by worktree-add)
 #
-# Usage: git clone-bare <repo_url> [<root_path>]
+# Usage:
+#   git clone-bare <repo_url> [<root_path>]
+#
+# Arguments:
+#   <repo_url>   Any URL `git clone` accepts; passed straight through to
+#                `git clone --bare`.
+#   <root_path>  Optional. The project root, which ends up holding .git with
+#                every worktree beside it. Defaults to the project name derived
+#                from <repo_url> under the current directory, matching
+#                `git clone`. Created if it doesn't exist.
+#
+# An existing <root_path>/.git is left alone and the clone skipped, so this is
+# safe to re-run.
 #
 # Using `git clone-bare` and `git worktree-add` together:
 # ``` sh

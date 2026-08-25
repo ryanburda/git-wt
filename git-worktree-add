@@ -23,9 +23,26 @@
 # Diagnostics go to stderr, so `WT=$(git worktree-add ...)` only ever captures
 # the path.
 #
+# After the add, if the checked-out branch has no upstream configured and
+# refs/remotes/origin/<branch> exists, it is set as the upstream. A branch just
+# created with <new_branch> usually has no matching remote ref, so it is left
+# without one.
+#
 # Usage:
+#   git worktree-add <worktree_name> <branch> [<new_branch>]
+#
 #   git worktree-add wt1 main          # checkout main in $root_path/wt1
 #   git worktree-add wt1 main feature  # create branch "feature" off main in $root_path/wt1
+#
+# Arguments:
+#   <worktree_name>  A directory name, not a path. It is always joined onto the
+#                    project root derived from the bare repo's location, never
+#                    the current directory, so the same command from a nested
+#                    subdirectory or another worktree lands in the same place.
+#   <branch>         With two arguments, the existing branch (or any commit-ish)
+#                    to check out. With three, the start point for <new_branch>.
+#   <new_branch>     Optional. When given, a branch by this name is created off
+#                    <branch> and checked out in the new worktree.
 #
 # Using `git clone-bare` and `git worktree-add` together:
 # ``` sh

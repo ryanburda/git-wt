@@ -17,6 +17,12 @@
 # Usage:
 #   git worktree-setup [<worktree_path>]
 #
+# Arguments:
+#   <worktree_path>  Optional. The directory the hook runs in. Defaults to the
+#                    worktree containing the current directory. The hook itself
+#                    is always looked up from the project root of the repo the
+#                    command is run in, not from this path.
+#
 # With no argument the current worktree is used, so both of these work:
 #
 #   cd ~/code/project_a/base && git worktree-setup

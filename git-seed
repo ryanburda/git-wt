@@ -34,12 +34,19 @@
 #   git -C "$WT" worktree-setup
 #
 # Usage:
-#   git seed <repo_url> [<root_path>]
-#   git seed -b <branch> -w <worktree_name> -n <repo_url> [<root_path>]
+#   git seed [-b <branch>] [-w <worktree_name>] [-n] <repo_url> [<root_path>]
 #
-#   -b <branch>   branch to check out (default: the remote's default branch)
-#   -w <name>     worktree directory name (default: base)
-#   -n            don't lock the worktree
+# Arguments:
+#   -b <branch>   Branch to check out in the worktree. Defaults to whatever the
+#                 remote's HEAD points at, so main and master both just work.
+#   -w <name>     Worktree directory name, created under <root_path>.
+#                 Default: base.
+#   -n            Don't lock the worktree. Locked is the default.
+#   -h            Print usage and exit.
+#   <repo_url>    Any URL `git clone` accepts; handed to `git clone-bare`.
+#   <root_path>   Optional. The project root that ends up holding .git and the
+#                 worktree beside it. Defaults to the project name derived from
+#                 <repo_url> under the current directory, matching `git clone`.
 #
 # Example:
 #   WT=$(git seed git@github.com:user/project_a.git ~/code/project_a)

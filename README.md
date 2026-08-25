@@ -1,19 +1,45 @@
 # git-ext
 
-Git external commands for a worktree-first workflow.
+*Git external commands for a worktree-first workflow.*
+
+If you're reading this you already know why worktrees are nice. These are just some small
+wrappers around the git commands it make it easier to enforce a simple repo layout.
+
+```sh
+# `git seed` is a worktree-first version of `git clone`.
+# Just pass it a URL
+#                 |
+#                 v
+git seed git@github.com:user/project.git
+
+# `git worktree-add` wraps `git worktree add` to enforce the repo structure
+#
+#       worktree name     (optional) new branch name created off existing
+#                 |         |
+#                 v         v
+git worktree-add wt1 main feature
+#                      ^
+#                      |
+#                existing branch to check out 
+```
+
+Running the commands above results in the folder structure below.
 
 ```
-~/code/project_a/
-├── .git/          <- bare repo               (created by `git seed` or `git clone-bare`)
-├── .worktree/     <- optional setup hook
-│   └── setup      <- sets up a new worktree  (run by `git worktree-setup`)
-├── base/          <- worktree                (created by `git worktree-add`)
-├── feature-a/     <- worktree                (created by `git worktree-add`)
-└── feature-b/     <- worktree                (created by `git worktree-add`)
+../project/
+├── .git/        <- bare repo  (created by `git seed`)
+├── base/        <- worktree   (created by `git seed`)
+└── wt1/         <- worktree   (created by `git worktree-add`)
 ```
 
-Git picks up any executable named `git-<name>` on your `PATH` and makes it
-available as `git <name>`. This repo ships the following commands:
+- Similar to `git clone`, the project name is inferred by the URL and is used
+to create the top level directory of the repo.
+- the `.git` folder contains the bare repo
+- the `base` worktree was created and locked by `git seed` to act as your "default" worktree
+- the `wt1` worktree exists along side the bare repo and the `base` worktree
+
+
+### Command overview
 
 | Command | Purpose |
 | --- | --- |
@@ -61,7 +87,8 @@ Overrides, if the defaults don't suit you:
 curl -fsSL https://raw.githubusercontent.com/ryanburda/git-ext/main/install.sh | BIN_DIR=~/bin sh
 ```
 
-### Uninstall
+## Uninstall
+
 To uninstall, delete the symlinks and the checkout, plus any completion links from the section below:
 
 ```sh
