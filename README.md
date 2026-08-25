@@ -62,10 +62,10 @@ curl -fsSL https://raw.githubusercontent.com/ryanburda/git-ext/main/install.sh |
 ```
 
 ### Uninstall
-To uninstall, delete the two symlinks and the checkout, plus any completion links from the section below:
+To uninstall, delete the symlinks and the checkout, plus any completion links from the section below:
 
 ```sh
-rm ~/.local/bin/git-clone-bare ~/.local/bin/git-worktree-add
+rm ~/.local/bin/git-{clone-bare,worktree-add,worktree-setup,seed}
 rm -rf ~/.local/share/git-ext
 ```
 
