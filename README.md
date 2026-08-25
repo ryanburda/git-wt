@@ -2,15 +2,25 @@
 
 Git external commands for a worktree-first workflow.
 
+```
+~/code/project_a/
+├── .git/          <- bare repo               (created by `git seed` or `git clone-bare`)
+├── .worktree/     <- optional setup hook
+│   └── setup      <- sets up a new worktree  (run by `git worktree-setup`)
+├── base/          <- worktree                (created by `git worktree-add`)
+├── feature-a/     <- worktree                (created by `git worktree-add`)
+└── feature-b/     <- worktree                (created by `git worktree-add`)
+```
+
 Git picks up any executable named `git-<name>` on your `PATH` and makes it
 available as `git <name>`. This repo ships the following commands:
 
 | Command | Purpose |
 | --- | --- |
+| `git seed` | Clone a repo and grow its first worktree in one step |
 | `git clone-bare` | Clone a repo as a bare repo laid out for worktrees |
 | `git worktree-add` | Add a worktree in that layout |
 | `git worktree-setup` | Run a project's `.worktree/setup` hook in a worktree |
-| `git seed` | Clone a repo and grow its first worktree in one step |
 
 ## Install
 
@@ -30,8 +40,8 @@ export PATH="$HOME/.local/bin:$PATH"
 Verify:
 
 ```sh
-git clone-bare      # prints usage
 git seed            # prints usage
+git clone-bare      # prints usage
 git worktree-add    # prints usage
 git worktree-setup  # runs the hook, if any
 ```
@@ -137,31 +147,50 @@ end
 
 </details>
 
-## Bare Repo Layout
-
-The `git clone-bare` and `git worktree-add` commands enforce one repo structure
-that has a bare repo at `.git`, with every worktree as a sibling directory beside it.
-
-```
-~/code/project_a/
-├── .git/          <- bare repo      (created by git clone-bare)
-├── main/          <- worktree       (created by git worktree-add)
-├── feature-a/     <- worktree
-└── feature-b/     <- worktree
-```
-
 ## Usage
 
-```sh
-REPO_ROOT=~/code/project_a
+### `git seed`
 
-git clone-bare git@github.com:user/project_a.git "$REPO_ROOT"
+A worktree-first version of `git clone`
 
-WT=$(git -C "$REPO_ROOT" worktree-add project_a main)
-cd "$WT"
+```
+git seed [-b <branch>] [-w <worktree_name>] [-n] <repo_url> [<root_path>]
 ```
 
-### git clone-bare
+| Flag | Default | Meaning |
+| --- | --- | --- |
+| `-b <branch>` | the remote's default branch | branch to check out |
+| `-w <name>` | `base` | worktree directory name |
+| `-n` | lock | don't lock the worktree |
+
+**Example**:
+```sh
+git seed git@github.com:user/project_a.git
+```
+**Produces**:
+```
+../project_a/
+├── .git/          <- bare repo
+└── base/          <- worktree, on the remote's default branch, locked
+```
+**Explaination**:
+- With no `<root_path>`, the project name is derived from the URL and created
+under the current directory, matching `git clone`'s behavior.
+- The branch comes from the remote's `HEAD`, so repos on `main` and repos on
+`master` both work without being told which.
+- The worktree directory is called `base` rather than being named after the branch.
+- The worktree is locked by default enforcing that at least one worktree be thought of
+as the "default" worktree. Locking prevents `git worktree prune` from removing it.
+
+Safe to re-run: an existing bare repo, worktree, or lock is each left alone, so
+a setup script can call it on every bootstrap. Only `<root_path>/.git` and the
+worktree directory are written, so an existing project root is fine.
+
+The project's `.worktree/setup` hook is *not* run — that is
+[`git worktree-setup`](#git-worktree-setup), kept separate so that slow setup
+work stays opt-in.
+
+### `git clone-bare`
 
 ```
 git clone-bare <repo_url> [<root_path>]
@@ -171,8 +200,8 @@ Clones into `<root_path>/.git` as a bare repo. With no `<root_path>`, the
 project name is derived from the URL and created under the current directory,
 matching `git clone`'s behavior.
 
-A plain `git clone --bare` isn't usable for day-to-day development: it's built
-to be a server-side mirror, so it maps every upstream branch into
+A plain `git clone --bare` isn't ideal for day-to-day development since it's built
+to be a server-side mirror. This means it maps every upstream branch into
 `refs/heads/*` and has no local/remote distinction. This command restores it:
 
 - sets `remote.origin.fetch` to the standard `+refs/heads/*:refs/remotes/origin/*`
@@ -182,7 +211,7 @@ to be a server-side mirror, so it maps every upstream branch into
 The result is a bare repo whose refs look like a normal clone's, so upstream
 branches are `origin/<branch>` and local branches are yours.
 
-### git worktree-add
+### `git worktree-add`
 
 ```
 git worktree-add <worktree_name> <branch>               # check out an existing branch
@@ -204,7 +233,7 @@ Creating the worktree is all it does. Preparing that worktree is
 `git worktree-setup`, deliberately a separate command: setup can be slow, and
 adding a worktree shouldn't drag that along every time.
 
-### git worktree-setup
+### `git worktree-setup`
 
 ```
 git worktree-setup [<worktree_path>]
@@ -220,7 +249,7 @@ ln -sfn ~/repos/project_a ~/code/project_a/.worktree
 git -C "$WT" worktree-setup
 ```
 
-### Worktree setup hook
+#### Worktree setup hook
 
 `git worktree-setup` runs `<project_root>/.worktree/setup` from inside a
 worktree, if the project has one.
