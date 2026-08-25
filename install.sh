@@ -15,7 +15,7 @@ REPO_URL=${GIT_EXT_REPO:-https://github.com/ryanburda/git-ext.git}
 GIT_EXT_HOME=${GIT_EXT_HOME:-"${XDG_DATA_HOME:-$HOME/.local/share}/git-ext"}
 BIN_DIR=${BIN_DIR:-"$HOME/.local/bin"}
 
-COMMANDS="git-clone-bare git-clone-worktree git-worktree-add"
+COMMANDS="git-clone-bare git-worktree-add git-seed"
 
 die() {
     echo "install.sh: $*" >&2

@@ -1,5 +1,9 @@
 #!/bin/zsh
-# Clone a repo as a bare repo and add its first worktree, in one step.
+# Clone a repo and grow its first worktree, in one step.
+#
+# A convenience function allowing you to change all of
+# your `git clone <repo-url>` calls into `git seed <repo-url>`
+# with sensible defaults.
 #
 # This is `git clone-bare` followed by `git worktree-add`, which is how a repo
 # in this layout almost always gets set up:
@@ -15,7 +19,7 @@
 # locking keeps `git worktree prune` away from them. Pass -n to skip that.
 #
 # Prints the absolute path of the worktree on stdout; everything else goes to
-# stderr, so `WT=$(git clone-worktree ...)` captures just the path. Safe to
+# stderr, so `WT=$(git seed ...)` captures just the path. Safe to
 # re-run: an existing bare repo, worktree, or lock is left alone.
 #
 # Only <root_path>/.git and the worktree directory are written, so a project
@@ -25,26 +29,34 @@
 #
 #   mkdir -p ~/code/project_a
 #   ln -sfn ~/repos/project_a ~/code/project_a/.worktree
-#   git clone-worktree git@github.com:user/project_a.git ~/code/project_a
+#   git seed git@github.com:user/project_a.git ~/code/project_a
 #
 # Usage:
-#   git clone-worktree <repo_url> [<root_path>]
-#   git clone-worktree -b <branch> -w <worktree_name> -n <repo_url> [<root_path>]
+#   git seed <repo_url> [<root_path>]
+#   git seed -b <branch> -w <worktree_name> -n <repo_url> [<root_path>]
 #
 #   -b <branch>   branch to check out (default: the remote's default branch)
 #   -w <name>     worktree directory name (default: base)
 #   -n            don't lock the worktree
 #
 # Example:
-#   WT=$(git clone-worktree git@github.com:user/project_a.git ~/code/project_a)
+#   WT=$(git seed git@github.com:user/project_a.git ~/code/project_a)
 
 set -e
 
 usage() {
-    echo "Usage: git clone-worktree [-b <branch>] [-w <worktree_name>] [-n] <repo_url> [<root_path>]" >&2
+    echo "Usage: git seed [-b <branch>] [-w <worktree_name>] [-n] <repo_url> [<root_path>]" >&2
 }
 
 BRANCH=""
+
+# Why choose "base" as the default worktree name. It actually makes
+# more sense to describe alternative names that didn't quite work:
+#   - main/master shaddows default branch naming conventions
+#   - root (of a tree) envokes the idea of a superuser
+#   - trunk carries its own meaning from older version control systems
+# "base" is short, claimed by nothing else, and says what it is -- the
+# base worktree that all other worktrees get added alongside.
 WORKTREE_NAME="base"
 LOCK=1
 
