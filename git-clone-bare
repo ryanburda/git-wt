@@ -22,7 +22,7 @@
 set -e
 
 if [[ $# -lt 1 || $# -gt 2 ]]; then
-    echo "Usage: git clone-bare <repo_url> [<root_path>]"
+    echo "Usage: git clone-bare <repo_url> [<root_path>]" >&2
     exit 1
 fi
 
@@ -40,7 +40,7 @@ fi
 BARE_DIR="${ROOT_PATH}/.git"
 
 if [[ -d "$BARE_DIR" ]]; then
-    echo "Bare repo already exists at ${BARE_DIR}, skipping clone."
+    echo "Bare repo already exists at ${BARE_DIR}, skipping clone." >&2
 else
     mkdir -p "${ROOT_PATH}"
     git clone --bare "$REPO_URL" "$BARE_DIR"

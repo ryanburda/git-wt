@@ -9,6 +9,7 @@ available as `git <name>`. This repo ships the following commands:
 | --- | --- |
 | `git clone-bare` | Clone a repo as a bare repo laid out for worktrees |
 | `git worktree-add` | Add a worktree in that layout and run project setup |
+| `git clone-worktree` | Both of the above in one step, on the remote's default branch |
 
 ## Install
 
@@ -16,7 +17,7 @@ available as `git <name>`. This repo ships the following commands:
 curl -fsSL https://raw.githubusercontent.com/ryanburda/git-ext/main/install.sh | sh
 ```
 
-The script clones this repo to `~/.local/share/git-ext` and symlinks both
+The script clones this repo to `~/.local/share/git-ext` and symlinks the
 commands into `~/.local/bin`. Re-running it updates the checkout in place.
 
 Make sure `~/.local/bin` is on your `PATH`. The installer warns you if it isn't:
@@ -29,6 +30,7 @@ Verify:
 
 ```sh
 git clone-bare      # prints usage
+git clone-worktree  # prints usage
 git worktree-add    # prints usage
 ```
 
@@ -252,7 +254,13 @@ linking, and creating the first worktree:
 # ~/repos/setup
 set -e
 
-git clone-bare git@github.com:user/project_a.git ~/code/project_a
+mkdir -p ~/code/project_a
 ln -sfn ~/repos/project_a ~/code/project_a/.worktree
-git -C ~/code/project_a worktree-add main main
+git clone-worktree git@github.com:user/project_a.git ~/code/project_a
 ```
+
+Note the order: `.worktree` has to be in place *before* the first worktree is
+created, or there is no setup hook to run yet. That works because
+`git clone-worktree` only writes `<project_root>/.git` and the worktree
+directory, leaving anything already in the project root untouched -- so
+creating the directory and linking the hook up front is safe.

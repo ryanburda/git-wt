@@ -20,6 +20,7 @@ compdef _git-worktree-add git-worktree-add
 # Offer the commands, with descriptions, when completing `git <TAB>`.
 zstyle ':completion:*:*:git:*' user-commands \
     clone-bare:'clone a repo as a bare repo laid out for worktrees' \
+    clone-worktree:'clone a repo and add its first worktree in one step' \
     worktree-add:'add a worktree and run project setup'
 
 unset _git_ext_root

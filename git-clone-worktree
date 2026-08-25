@@ -1,0 +1,94 @@
+#!/bin/zsh
+# Clone a repo as a bare repo and add its first worktree, in one step.
+#
+# This is `git clone-bare` followed by `git worktree-add`, which is how a repo
+# in this layout almost always gets set up:
+#
+#   $root_path/
+#   ├── .git/              <- bare repo
+#   └── base/              <- worktree, checked out on the default branch
+#
+# The branch defaults to whatever the remote's HEAD points at, so repos on
+# `main` and repos on `master` both work without being told which.
+#
+# The worktree is locked by default: these are long-lived checkouts, and
+# locking keeps `git worktree prune` away from them. Pass -n to skip that.
+#
+# Prints the absolute path of the worktree on stdout; everything else goes to
+# stderr, so `WT=$(git clone-worktree ...)` captures just the path. Safe to
+# re-run: an existing bare repo, worktree, or lock is left alone.
+#
+# Only <root_path>/.git and the worktree directory are written, so a project
+# root that already exists is fine. That matters for the `.worktree/setup`
+# hook, which `git worktree-add` runs from inside each new worktree: put it in
+# place *before* calling this, or it won't exist yet to be run.
+#
+#   mkdir -p ~/code/project_a
+#   ln -sfn ~/repos/project_a ~/code/project_a/.worktree
+#   git clone-worktree git@github.com:user/project_a.git ~/code/project_a
+#
+# Usage:
+#   git clone-worktree <repo_url> [<root_path>]
+#   git clone-worktree -b <branch> -w <worktree_name> -n <repo_url> [<root_path>]
+#
+#   -b <branch>   branch to check out (default: the remote's default branch)
+#   -w <name>     worktree directory name (default: base)
+#   -n            don't lock the worktree
+#
+# Example:
+#   WT=$(git clone-worktree git@github.com:user/project_a.git ~/code/project_a)
+
+set -e
+
+usage() {
+    echo "Usage: git clone-worktree [-b <branch>] [-w <worktree_name>] [-n] <repo_url> [<root_path>]" >&2
+}
+
+BRANCH=""
+WORKTREE_NAME="base"
+LOCK=1
+
+while getopts ":b:w:nh" opt; do
+    case $opt in
+        b) BRANCH=$OPTARG ;;
+        w) WORKTREE_NAME=$OPTARG ;;
+        n) LOCK=0 ;;
+        h) usage; exit 0 ;;
+        :) echo "Error: -$OPTARG requires an argument" >&2; usage; exit 1 ;;
+        \?) echo "Error: unknown option -$OPTARG" >&2; usage; exit 1 ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+if [[ $# -lt 1 || $# -gt 2 ]]; then
+    usage
+    exit 1
+fi
+
+REPO_URL=$1
+
+if [[ -n "$2" ]]; then
+    ROOT_PATH=$2
+else
+    # Same default as git clone-bare: the project name under the current dir.
+    ROOT_PATH="$(pwd)/$(basename "${REPO_URL}" .git)"
+fi
+
+# >&2 so only the worktree path reaches our stdout.
+git clone-bare "$REPO_URL" "$ROOT_PATH" >&2
+
+if [[ -z "$BRANCH" ]]; then
+    # The bare clone's HEAD points at the remote's default branch, so this
+    # works whether the repo uses main, master, or something else entirely.
+    BRANCH=$(git -C "$ROOT_PATH" symbolic-ref --short HEAD)
+fi
+
+WT=$(git -C "$ROOT_PATH" worktree-add "$WORKTREE_NAME" "$BRANCH")
+
+if (( LOCK )); then
+    # Already locked is the normal state on a re-run; `worktree lock` exits 128
+    # for it, which shouldn't fail the whole command.
+    git -C "$ROOT_PATH" worktree lock "$WT" 2>/dev/null || true
+fi
+
+echo "$WT"
