@@ -1,50 +1,56 @@
 #!/bin/zsh
-# Run the project's worktree setup hook against a worktree.
-#
-# The hook lives at <project_root>/.worktree/setup -- next to the bare .git
-# directory, not inside any worktree, so it isn't tracked by the repo. See the
-# README for why that is the right place for it.
-#
-# This is deliberately separate from `git worktree-add`. Setting up a worktree
-# can be slow -- installing dependencies, copying large fixtures, building --
-# and that shouldn't be forced on every `worktree-add`. Adding a worktree and
-# preparing it are two different jobs, so you ask for the second one when you
-# want it.
-#
-# Does nothing (successfully) when the project has no hook, so it is safe to
-# call unconditionally.
-#
-# Usage:
-#   git worktree-setup [<worktree_path>]
-#
-# Arguments:
-#   <worktree_path>  Optional. The directory the hook runs in. Defaults to the
-#                    worktree containing the current directory. The hook itself
-#                    is always looked up from the project root of the repo the
-#                    command is run in, not from this path.
-#
-# With no argument the current worktree is used, so both of these work:
-#
-#   cd ~/code/project_a/base && git worktree-setup
-#   git -C ~/code/project_a/base worktree-setup
-
 set -e
 
+usage() {
+    cat >&2 <<'EOF'
+Usage:
+  git worktree-setup [<worktree_path>]
+
+Run the project's worktree setup hook against a worktree.
+
+The hook lives at <project_root>/.worktree/setup next to the bare .git
+directory
+
+This is deliberately separate from `git worktree-add` since setting up a worktree
+can be slow. Adding a worktree and preparing it are two different jobs, so you
+ask for the second one when you want it.
+
+Does nothing (successfully) when the project has no hook, so it is safe to
+call unconditionally.
+
+Arguments:
+  -h               Print this help and exit.
+  <worktree_path>  Optional. The directory the hook runs in. Defaults to the
+                   worktree containing the current directory. The hook itself
+                   is always looked up from the project root of the repo the
+                   command is run in, not from this path.
+
+Examples:
+  cd ~/code/project_a/base && git worktree-setup
+  git -C ~/code/project_a/base worktree-setup
+EOF
+}
+
+if [[ "$1" == "-h" ]]; then
+    usage
+    exit 0
+fi
+
 if [[ $# -gt 1 ]]; then
-    echo "Usage: git worktree-setup [<worktree_path>]" >&2
-    exit 1
+    usage
+    exit 129
 fi
 
 if ! git rev-parse --git-dir > /dev/null 2>&1; then
     echo "Error: not inside a git repository" >&2
-    exit 1
+    exit 128
 fi
 
 BARE_DIR=$(cd "$(git rev-parse --git-common-dir)" && pwd)
 PROJECT_ROOT="${BARE_DIR%/.git}"
 
 if [[ -n "$1" ]]; then
-    [[ -d "$1" ]] || { echo "Error: $1 is not a directory" >&2; exit 1; }
+    [[ -d "$1" ]] || { echo "Error: $1 is not a directory" >&2; exit 128; }
     WORKTREE_PATH=$(cd "$1" && pwd)
 else
     WORKTREE_PATH=$(git rev-parse --show-toplevel)
@@ -59,7 +65,7 @@ fi
 
 if [[ ! -x "$SETUP_SCRIPT" ]]; then
     echo "Error: ${SETUP_SCRIPT} exists but is not executable" >&2
-    exit 1
+    exit 128
 fi
 
 (cd "$WORKTREE_PATH" && exec "$SETUP_SCRIPT")

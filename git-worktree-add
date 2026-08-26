@@ -1,62 +1,52 @@
 #!/bin/zsh
-# Add a worktree in the layout `git clone-bare` creates.
-#
-# Works with `git clone-bare` to enforce a repo folder structure
-# that accommodates worktrees:
-#
-#   $root_path/
-#   ├── .git/              <- bare repo (created by clone-bare)
-#   ├── feature-a/         <- worktree (created by worktree-add)
-#   └── feature-b/         <- worktree (created by worktree-add)
-#
-# The worktree is created as a sibling of the .git bare repo directory,
-# regardless of where the command is run from within the repo.
-#
-# Creating the worktree is all this does. Preparing it -- installing deps,
-# copying fixtures, whatever the project needs -- is `git worktree-setup`,
-# kept separate so that potentially slow work isn't forced on every add.
-#
-# Prints the absolute path of the worktree on stdout. Adding a worktree that
-# already exists is a no-op that still prints the path and exits 0, so this is
-# safe to re-run -- setup scripts call it on every bootstrap.
-#
-# Diagnostics go to stderr, so `WT=$(git worktree-add ...)` only ever captures
-# the path.
-#
-# After the add, if the checked-out branch has no upstream configured and
-# refs/remotes/origin/<branch> exists, it is set as the upstream. A branch just
-# created with <new_branch> usually has no matching remote ref, so it is left
-# without one.
-#
-# Usage:
-#   git worktree-add <worktree_name> <branch> [<new_branch>]
-#
-#   git worktree-add wt1 main          # checkout main in $root_path/wt1
-#   git worktree-add wt1 main feature  # create branch "feature" off main in $root_path/wt1
-#
-# Arguments:
-#   <worktree_name>  A directory name, not a path. It is always joined onto the
-#                    project root derived from the bare repo's location, never
-#                    the current directory, so the same command from a nested
-#                    subdirectory or another worktree lands in the same place.
-#   <branch>         With two arguments, the existing branch (or any commit-ish)
-#                    to check out. With three, the start point for <new_branch>.
-#   <new_branch>     Optional. When given, a branch by this name is created off
-#                    <branch> and checked out in the new worktree.
-#
-# Using `git clone-bare` and `git worktree-add` together:
-# ``` sh
-# REPO_ROOT=~/code/project_a
-# git clone-bare git@github.com:user/project_a.git "$REPO_ROOT"
-# WT=$(git -C "$REPO_ROOT" worktree-add project_a main)
-# git -C "$REPO_ROOT" worktree lock "$WT"  # Lock the worktree (optional)
-# ```
-
 set -e
 
+usage() {
+    cat >&2 <<'EOF'
+Usage:
+  git worktree-add <worktree_name> <branch> [<new_branch>]
+
+Works with `git clone-bare` to enforce a repo
+folder structure that accommodates worktrees:
+
+  $root_path/
+  ├── .git/              <- bare repo (created by clone-bare or seed)
+  ├── feature-a/         <- worktree (created by worktree-add)
+  └── feature-b/         <- worktree (created by worktree-add)
+
+The worktree is created as a sibling of the .git bare repo directory,
+regardless of where the command is run from within the repo.
+
+Arguments:
+  -h               Print this help and exit.
+  <worktree_name>  A directory name, not a path. It is always joined onto the
+                   project root derived from the bare repo's location, never
+                   the current directory, so the same command from a nested
+                   subdirectory or another worktree lands in the same place.
+  <branch>         With two arguments, the existing branch (or any commit-ish)
+                   to check out. With three, the start point for <new_branch>.
+  <new_branch>     Optional. When given, a branch by this name is created off
+                   <branch> and checked out in the new worktree.
+
+Returns:
+  Prints the absolute path of the worktree on stdout. Adding a worktree that
+  already exists is a no-op that still prints the path and exits 0, so this is
+  safe to re-run.
+
+Examples:
+  git worktree-add wt1 main          # checkout main in $root_path/wt1
+  git worktree-add wt1 main feature  # create branch "feature" off main in $root_path/wt1
+EOF
+}
+
+if [[ "$1" == "-h" ]]; then
+    usage
+    exit 0
+fi
+
 if [[ $# -lt 2 || $# -gt 3 ]]; then
-    echo "Usage: git worktree-add <worktree_name> <branch> [<new_branch>]" >&2
-    exit 1
+    usage
+    exit 129
 fi
 
 WORKTREE_NAME=$1
@@ -65,7 +55,7 @@ NEW_BRANCH=$3
 
 if ! git rev-parse --git-dir > /dev/null 2>&1; then
     echo "Error: not inside a git repository" >&2
-    exit 1
+    exit 128
 fi
 
 BARE_DIR=$(cd "$(git rev-parse --git-common-dir)" && pwd)
@@ -83,7 +73,7 @@ if [[ -d "$WORKTREE_PATH" ]]; then
         exit 0
     fi
     echo "Error: ${WORKTREE_PATH} already exists and is not a worktree of this repo" >&2
-    exit 1
+    exit 128
 fi
 
 if [[ -n "$NEW_BRANCH" ]]; then

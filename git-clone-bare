@@ -1,41 +1,41 @@
 #!/bin/zsh
-# Clone a repo as a bare repo.
-#
-# Works with `git worktree-add` to enforce a repo folder structure
-# that accommodates worktrees:
-#
-#   $root_path/
-#   ├── .git/              <- bare repo (created by clone-bare)
-#   ├── feature-a/         <- worktree (created by worktree-add)
-#   └── feature-b/         <- worktree (created by worktree-add)
-#
-# Usage:
-#   git clone-bare <repo_url> [<root_path>]
-#
-# Arguments:
-#   <repo_url>   Any URL `git clone` accepts; passed straight through to
-#                `git clone --bare`.
-#   <root_path>  Optional. The project root, which ends up holding .git with
-#                every worktree beside it. Defaults to the project name derived
-#                from <repo_url> under the current directory, matching
-#                `git clone`. Created if it doesn't exist.
-#
-# An existing <root_path>/.git is left alone and the clone skipped, so this is
-# safe to re-run.
-#
-# Using `git clone-bare` and `git worktree-add` together:
-# ``` sh
-# REPO_ROOT=~/code/project_a
-# git clone-bare git@github.com:user/project_a.git "$REPO_ROOT"
-# WT=$(git -C "$REPO_ROOT" worktree-add project_a main)
-# git -C "$REPO_ROOT" worktree lock "$WT"  # Lock the worktree (optional)
-# ```
-
 set -e
 
+usage() {
+    cat >&2 <<'EOF'
+Usage:
+  git clone-bare <repo_url> [<root_path>]
+
+Works with `git worktree-add` to enforce a repo folder structure
+that accommodates worktrees:
+
+  $<root_path>/
+  ├── .git/             <- bare repo (created by clone-bare)
+  ├── feature-a/        <- worktree (created by worktree-add)
+  └── feature-b/        <- worktree (created by worktree-add)
+
+Arguments:
+  -h           Print this help and exit.
+  <repo_url>   Any URL `git clone` accepts; passed straight through to
+               `git clone --bare`.
+  <root_path>  Optional. The project root, which ends up holding .git with
+               every worktree beside it. Defaults to the project name derived
+               from <repo_url> under the current directory, matching
+               `git clone`. Created if it doesn't exist.
+
+Example:
+  git clone-bare git@github.com:user/project_a.git ~/code/project_a
+EOF
+}
+
+if [[ "$1" == "-h" ]]; then
+    usage
+    exit 0
+fi
+
 if [[ $# -lt 1 || $# -gt 2 ]]; then
-    echo "Usage: git clone-bare <repo_url> [<root_path>]" >&2
-    exit 1
+    usage
+    exit 129
 fi
 
 REPO_URL=$1

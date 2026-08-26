@@ -1,64 +1,36 @@
 #!/bin/zsh
-# Clone a repo and grow its first worktree, in one step.
-#
-# A convenience function allowing you to change all of
-# your `git clone <repo-url>` calls into `git seed <repo-url>`
-# with sensible defaults.
-#
-# This is `git clone-bare` followed by `git worktree-add`, which is how a repo
-# in this layout almost always gets set up:
-#
-#   $root_path/
-#   ├── .git/              <- bare repo
-#   └── base/              <- worktree, checked out on the default branch
-#
-# The branch defaults to whatever the remote's HEAD points at, so repos on
-# `main` and repos on `master` both work without being told which.
-#
-# The worktree is locked by default: these are long-lived checkouts, and
-# locking keeps `git worktree prune` away from them. Pass -n to skip that.
-#
-# Prints the absolute path of the worktree on stdout; everything else goes to
-# stderr, so `WT=$(git seed ...)` captures just the path. Safe to
-# re-run: an existing bare repo, worktree, or lock is left alone.
-#
-# Only <root_path>/.git and the worktree directory are written, so a project
-# root that already exists is fine.
-#
-# The project's `.worktree/setup` hook is not run here -- that's
-# `git worktree-setup`, kept separate so slow setup work stays opt-in. Because
-# it's a separate call, the hook can be linked in at any point before it:
-#
-#   WT=$(git seed git@github.com:user/project_a.git ~/code/project_a)
-#   ln -sfn ~/repos/project_a ~/code/project_a/.worktree
-#   git -C "$WT" worktree-setup
-#
-# Usage:
-#   git seed [-b <branch>] [-w <worktree_name>] [-n] <repo_url> [<root_path>]
-#
-# Arguments:
-#   -b <branch>   Branch to check out in the worktree. Defaults to whatever the
-#                 remote's HEAD points at, so main and master both just work.
-#   -w <name>     Worktree directory name, created under <root_path>.
-#                 Default: base.
-#   -n            Don't lock the worktree. Locked is the default.
-#   -h            Print usage and exit.
-#   <repo_url>    Any URL `git clone` accepts; handed to `git clone-bare`.
-#   <root_path>   Optional. The project root that ends up holding .git and the
-#                 worktree beside it. Defaults to the project name derived from
-#                 <repo_url> under the current directory, matching `git clone`.
-#
-# Example:
-#   WT=$(git seed git@github.com:user/project_a.git ~/code/project_a)
-
 set -e
 
 usage() {
-    echo "Usage: git seed [-b <branch>] [-w <worktree_name>] [-n] <repo_url> [<root_path>]" >&2
+    cat >&2 <<'EOF'
+Usage:
+  git seed [-b <branch>] [-w <worktree_name>] [-n] <repo_url> [<root_path>]
+
+The worktree-first version of `git clone` that clones
+a repo and grow its first worktree, in one step.
+
+  $<root_path>/
+  ├── .git/        <- bare repo
+  └── base/        <- worktree, checked out on the default branch
+
+Arguments:
+  -b <branch>   Branch to check out in the worktree. Defaults to whatever the
+                remote's HEAD points at, so main and master both just work.
+  -w <name>     Worktree directory name, created under <root_path>.
+                Default: base.
+  -n            Don't lock the worktree. Locked is the default.
+  -h            Print this help and exit.
+  <repo_url>    Any URL `git clone` accepts; handed to `git clone-bare`.
+  <root_path>   Optional. The project root that ends up holding .git and the
+                worktree beside it. Defaults to the project name derived from
+                <repo_url> under the current directory, matching `git clone`.
+
+Example:
+  WT=$(git seed git@github.com:user/project_a.git ~/code/project_a)
+EOF
 }
 
 BRANCH=""
-
 # Why choose "base" as the default worktree name. It actually makes
 # more sense to describe alternative names that didn't quite work:
 #   - main/master shaddows default branch naming conventions
@@ -75,15 +47,15 @@ while getopts ":b:w:nh" opt; do
         w) WORKTREE_NAME=$OPTARG ;;
         n) LOCK=0 ;;
         h) usage; exit 0 ;;
-        :) echo "Error: -$OPTARG requires an argument" >&2; usage; exit 1 ;;
-        \?) echo "Error: unknown option -$OPTARG" >&2; usage; exit 1 ;;
+        :) echo "Error: -$OPTARG requires an argument" >&2; usage; exit 129 ;;
+        \?) echo "Error: unknown option -$OPTARG" >&2; usage; exit 129 ;;
     esac
 done
 shift $((OPTIND - 1))
 
 if [[ $# -lt 1 || $# -gt 2 ]]; then
     usage
-    exit 1
+    exit 129
 fi
 
 REPO_URL=$1

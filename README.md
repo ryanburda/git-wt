@@ -5,14 +5,14 @@
 If you're reading this you already know why worktrees are nice. These are just some small
 wrappers around the git commands it make it easier to enforce a simple repo layout.
 
-```sh
+``` sh
 # `git seed` is a worktree-first version of `git clone`.
 # Just pass it a URL
 #                 |
 #                 v
 git seed git@github.com:user/project.git
 
-# `git worktree-add` wraps `git worktree add` to enforce the repo structure
+# `git worktree-add` wraps `git worktree add` to enforce the repo structure.
 #
 #       worktree name     (optional) new branch name created off existing
 #                 |         |
@@ -37,7 +37,6 @@ to create the top level directory of the repo.
 - the `.git` folder contains the bare repo
 - the `base` worktree was created and locked by `git seed` to act as your "default" worktree
 - the `wt1` worktree exists along side the bare repo and the `base` worktree
-
 
 ### Command overview
 
