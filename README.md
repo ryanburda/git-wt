@@ -71,6 +71,8 @@ git worktree-add    # prints usage
 git worktree-setup  # runs the hook, if any
 ```
 
+TODO: Do the scripts have to be zsh? Investigate pros/cons.
+
 The commands themselves are zsh scripts, so zsh must be installed. The
 installer is POSIX `sh`, so it runs under whatever shell you pipe it to.
 
@@ -174,6 +176,8 @@ end
 </details>
 
 ## Usage
+
+TODO: clean up
 
 ### `git seed`
 
@@ -302,6 +306,8 @@ npm install
 ```
 
 ## Keeping your setup reproducible
+
+TODO: clean up
 
 The `.worktree/` directory is deliberately outside the project's own repo,
 which means nothing is tracking it. Left alone, the setup script you wrote
