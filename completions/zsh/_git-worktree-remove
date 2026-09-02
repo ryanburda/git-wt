@@ -1,0 +1,30 @@
+#compdef git-worktree-remove
+#
+# zsh completion for `git worktree-remove` and for the standalone
+# `git-worktree-remove` command.
+#
+# zsh's _git dispatches an unknown sub-command to a function named
+# `_git-<sub-command>`, so this file has to keep the name
+# `_git-worktree-remove` and sit on your fpath.
+
+__git_ext_worktree_names() {
+  local -a names
+  # `git worktree-remove` takes a name, not a path, so report the last path
+  # segment. The bare repo is skipped: it isn't a worktree to remove.
+  names=(${(f)"$(git worktree list --porcelain 2>/dev/null | awk '
+    /^worktree /{wt = substr($0, 10); bare = 0}
+    /^bare$/{bare = 1}
+    /^$/{if (wt != "" && !bare) print wt; wt = ""}
+    END{if (wt != "" && !bare) print wt}
+  ' | sed 's|.*/||')"})
+  _describe -t worktrees worktree names
+}
+
+_git-worktree-remove() {
+  _arguments -S \
+    '-f[remove a locked worktree, or one with modified or untracked files]' \
+    '-h[print help and exit]' \
+    '1:worktree name:__git_ext_worktree_names'
+}
+
+_git-worktree-remove "$@"

@@ -47,6 +47,7 @@ git's [internal worktree names](#worktree-names-and-the-flat-layout) unique
 | `git seed` | Clone a repo and grow its first worktree in one step |
 | `git clone-bare` | Clone a repo as a bare repo laid out for worktrees |
 | `git worktree-add` | Add a worktree in that layout |
+| `git worktree-remove` | Remove a worktree from that layout |
 | `git worktree-setup` | Run a project's `.worktree/setup` hook in a worktree |
 
 ## Install
@@ -70,6 +71,7 @@ Verify:
 git seed            # prints usage
 git clone-bare      # prints usage
 git worktree-add    # prints usage
+git worktree-remove # prints usage
 git worktree-setup  # runs the hook, if any
 ```
 
@@ -95,7 +97,7 @@ curl -fsSL https://raw.githubusercontent.com/ryanburda/git-ext/main/install.sh |
 To uninstall, delete the symlinks and the checkout, plus any completion links from the section below:
 
 ```sh
-rm ~/.local/bin/git-{clone-bare,worktree-add,worktree-setup,seed}
+rm ~/.local/bin/git-{clone-bare,worktree-add,worktree-remove,worktree-setup,seed}
 rm -rf ~/.local/share/git-ext
 ```
 
@@ -103,7 +105,7 @@ rm -rf ~/.local/share/git-ext
 
 `completions/` holds shell completions for these git extensions.
 For example, `git worktree-add` completes the `<branch>` argument, and
-`git worktree-setup` completes the repo's worktrees.
+`git worktree-remove` and `git worktree-setup` complete the repo's worktrees.
 
 ```
 $ git worktree-add wt <TAB>
@@ -145,7 +147,7 @@ With bash-completion installed, symlink the file into its user directory and it 
 
 ```sh
 mkdir -p ~/.local/share/bash-completion/completions
-for c in git-worktree-add git-worktree-setup; do
+for c in git-worktree-add git-worktree-remove git-worktree-setup; do
     ln -sfn ~/.local/share/git-ext/completions/bash/$c \
             ~/.local/share/bash-completion/completions/$c
 done
@@ -156,6 +158,7 @@ completion:
 
 ```sh
 source ~/.local/share/git-ext/completions/bash/git-worktree-add
+source ~/.local/share/git-ext/completions/bash/git-worktree-remove
 source ~/.local/share/git-ext/completions/bash/git-worktree-setup
 ```
 
@@ -169,7 +172,7 @@ before you complete a git command. `conf.d/` should be used instead of
 `completions/` (which fish only loads when completing a command of the same name):
 
 ```fish
-for c in git-worktree-add git-worktree-setup
+for c in git-worktree-add git-worktree-remove git-worktree-setup
     ln -sfn ~/.local/share/git-ext/completions/fish/$c.fish \
             ~/.config/fish/conf.d/$c.fish
 end
@@ -264,6 +267,41 @@ that remote branch exists.
 Creating the worktree is all it does. Preparing that worktree is
 `git worktree-setup`, deliberately a separate command: setup can be slow, and
 adding a worktree shouldn't drag that along every time.
+
+### `git worktree-remove`
+
+```
+git worktree-remove [-f] <worktree_name>
+```
+
+```sh
+git worktree-remove wt1        # remove $REPO_ROOT/wt1
+git worktree-remove -f base    # remove the locked base worktree
+```
+
+The counterpart to `git worktree-add`, and it resolves the worktree the same
+way: `<worktree_name>` is a name, not a path, joined onto the project root, so
+it removes the same worktree no matter where in the repo you run it from.
+
+Only the worktree is removed. The branch it had checked out is left alone, the
+same way `git worktree-add` leaves branches to `git branch`.
+
+`-f` is required for a worktree that is locked, or that has modified or
+untracked files; without it either one is an error and nothing is removed.
+Since `git seed` locks `base`, removing the default worktree takes `-f` on
+purpose.
+
+The project root is printed on stdout, which is where you want to be if you
+just removed the worktree you were standing in:
+
+```sh
+cd "$(git worktree-remove wt1)"
+```
+
+Safe to re-run: removing a worktree that isn't there reports it on stderr,
+prints the root, and exits 0. A path that exists but is not a worktree of this
+repo is never deleted -- that is a name collision, and it fails, exactly as it
+does in `git worktree-add`.
 
 ### `git worktree-setup`
 

@@ -1,0 +1,150 @@
+#!/bin/zsh
+set -e
+
+usage() {
+    cat >&2 <<'EOF'
+Usage:
+  git worktree-remove [-f] <worktree_name>
+
+The counterpart to `git worktree-add`. Removes a worktree from the repo
+folder structure those commands enforce:
+
+  $root_path/
+  ├── .git/              <- bare repo (created by clone-bare or seed)
+  ├── feature-a/         <- worktree (created by worktree-add)
+  └── feature-b/         <- worktree (removed by worktree-remove)
+
+The worktree is looked up as a sibling of the .git bare repo directory,
+regardless of where the command is run from within the repo.
+
+Only the worktree is removed. The branch it had checked out is left alone,
+the same way `git worktree-add` leaves branches to `git branch`.
+
+Arguments:
+  -f               Force. Removes a worktree that is locked, or that has
+                   modified or untracked files. Without it, either one is an
+                   error and nothing is removed. The `base` worktree is locked
+                   by `git seed`, so removing it takes -f on purpose.
+  -h               Print this help and exit.
+  <worktree_name>  A directory name, not a path. It is always joined onto the
+                   project root derived from the bare repo's location, never
+                   the current directory, so the same command from a nested
+                   subdirectory or another worktree removes the same worktree.
+                   Names containing "/", and "." and "..", are rejected: only
+                   direct children of the project root are worktrees this
+                   command knows how to remove. A trailing "/" is ignored, so
+                   a name completed as a directory works.
+
+Returns:
+  Prints the absolute path of the project root on stdout, which is where you
+  end up if the worktree you removed is the one you were standing in:
+
+    cd "$(git worktree-remove wt1)"
+
+  Removing a worktree that isn't there is a no-op that still prints the root
+  and exits 0, so this is safe to re-run. A path that exists but is not a
+  worktree of this repo is never deleted; it is an error.
+
+Examples:
+  git worktree-remove wt1       # remove $root_path/wt1
+  git worktree-remove -f base   # remove the locked base worktree
+EOF
+}
+
+FORCE=0
+
+while getopts ":fh" opt; do
+    case $opt in
+        f) FORCE=1 ;;
+        h) usage; exit 0 ;;
+        \?) echo "Error: unknown option -$OPTARG" >&2; usage; exit 129 ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+if [[ $# -ne 1 ]]; then
+    usage
+    exit 129
+fi
+
+WORKTREE_NAME=$1
+
+# Shell completion on a directory hands you "wt1/". That names the same
+# worktree, so trim trailing slashes rather than rejecting them below.
+while [[ "$WORKTREE_NAME" == */ ]]; do
+    WORKTREE_NAME=${WORKTREE_NAME%/}
+done
+
+# <worktree_name> is joined onto the project root, so it has to be a single path
+# segment, for the same reason `git worktree-add` requires one: every worktree in
+# this layout is a direct child of the project root. Anything else names a path
+# this command didn't create and won't delete. ".git" is the bare repo itself.
+case "$WORKTREE_NAME" in
+    */*)
+        echo "Error: <worktree_name> must be a directory name, not a path: '${WORKTREE_NAME}'" >&2
+        exit 128
+        ;;
+    ""|"."|".."|".git")
+        echo "Error: invalid <worktree_name>: '${WORKTREE_NAME}'" >&2
+        exit 128
+        ;;
+esac
+
+if ! git rev-parse --git-dir > /dev/null 2>&1; then
+    echo "Error: not inside a git repository" >&2
+    exit 128
+fi
+
+BARE_DIR=$(cd "$(git rev-parse --git-common-dir)" && pwd)
+PROJECT_ROOT="${BARE_DIR%/.git}"
+WORKTREE_PATH="${PROJECT_ROOT}/${WORKTREE_NAME}"
+
+# The porcelain listing is the authority on what is a worktree of this repo.
+# A registered worktree whose directory is already gone still needs removing --
+# git cleans up its metadata under .git/worktrees/ -- so ask git, not the disk.
+WORKTREE_RECORD=$(git worktree list --porcelain | awk -v target="worktree ${WORKTREE_PATH}" '
+    $0 == target {found = 1}
+    found {print}
+    found && /^$/ {exit}
+')
+
+if [[ -z "$WORKTREE_RECORD" ]]; then
+    # An unrelated directory that happens to sit at that name is not ours to
+    # delete; that is a collision, and it fails the same way it does in
+    # `git worktree-add`. Nothing there at all is just an already-done remove.
+    if [[ -e "$WORKTREE_PATH" ]]; then
+        echo "Error: ${WORKTREE_PATH} exists and is not a worktree of this repo" >&2
+        exit 128
+    fi
+    echo "No worktree at ${WORKTREE_PATH}, skipping remove." >&2
+    echo "$PROJECT_ROOT"
+    exit 0
+fi
+
+# git refuses a locked worktree even with a single --force, and a locked
+# worktree is a deliberate marker -- `git seed` locks `base` so that pruning
+# can't take it. Report it as its own error instead of leaking `remove -f -f`.
+if grep -q '^locked' <<< "$WORKTREE_RECORD" && (( ! FORCE )); then
+    LOCK_REASON=$(grep '^locked' <<< "$WORKTREE_RECORD" | cut -d' ' -f2-)
+    echo "Error: ${WORKTREE_PATH} is locked${LOCK_REASON:+: ${LOCK_REASON}}" >&2
+    echo "Use -f to remove it anyway." >&2
+    exit 128
+fi
+
+# Removing the worktree you are standing in leaves the shell in a deleted
+# directory. git allows it, and so do we -- the project root on stdout is
+# there to `cd` to -- but say so, because the shell won't.
+CURRENT_TOPLEVEL=$(git rev-parse --show-toplevel 2>/dev/null || true)
+if [[ -n "$CURRENT_TOPLEVEL" && "$CURRENT_TOPLEVEL" == "$WORKTREE_PATH" ]]; then
+    echo "Removing the current worktree; cd out of ${WORKTREE_PATH} afterwards." >&2
+fi
+
+if (( FORCE )); then
+    # Twice: the first --force covers modified or untracked files, the second
+    # is what git requires to override a lock.
+    git worktree remove --force --force "$WORKTREE_PATH" >&2
+else
+    git worktree remove "$WORKTREE_PATH" >&2
+fi
+
+echo "$PROJECT_ROOT"

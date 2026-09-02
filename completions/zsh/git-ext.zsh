@@ -16,6 +16,8 @@ _git_ext_root=${0:A:h:h:h}
 fpath=($_git_ext_root/completions/zsh $fpath)
 autoload -Uz _git-worktree-add
 compdef _git-worktree-add git-worktree-add
+autoload -Uz _git-worktree-remove
+compdef _git-worktree-remove git-worktree-remove
 autoload -Uz _git-worktree-setup
 compdef _git-worktree-setup git-worktree-setup
 
@@ -24,6 +26,7 @@ zstyle ':completion:*:*:git:*' user-commands \
     clone-bare:'clone a repo as a bare repo laid out for worktrees' \
     seed:'clone a repo and grow its first worktree in one step' \
     worktree-add:'add a worktree in that layout' \
+    worktree-remove:'remove a worktree from that layout' \
     worktree-setup:'run the project .worktree/setup hook in a worktree'
 
 unset _git_ext_root
