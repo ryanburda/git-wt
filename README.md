@@ -37,6 +37,8 @@ to create the top level directory of the repo.
 - the `.git` folder contains the bare repo
 - the `base` worktree was created and locked by `git seed` to act as your "default" worktree
 - the `wt1` worktree exists along side the bare repo and the `base` worktree
+- keeping every worktree a direct child of the project root is also what keeps
+git's [internal worktree names](#worktree-names-and-the-flat-layout) unique
 
 ### Command overview
 
@@ -304,6 +306,89 @@ place for the untracked odds and ends a fresh checkout needs:
 cp ~/code/project_a/.worktree/.env .env
 npm install
 ```
+
+## Worktree names and the flat layout
+
+Worktrees look nameless, but git gives every one an internal name and keeps its
+metadata under the bare repo at `.git/worktrees/<name>/`.
+
+That name is just the last path segment of the worktree. When two worktrees
+share a last segment, git doesn't complain -- it appends a counter:
+
+```sh
+git worktree add --detach ~/scratch/a/feature
+git worktree add --detach ~/scratch/b/feature
+```
+```
+.git/worktrees/
+├── feature/     <- ~/scratch/a/feature
+└── feature1/    <- ~/scratch/b/feature
+```
+
+Nothing breaks, but the short name you would reach for is now ambiguous, and
+the error doesn't say so:
+
+```sh
+$ git worktree remove feature
+fatal: 'feature' is not a working tree
+```
+
+git resolves a worktree argument by matching it against the tail of each
+worktree path. Two matches count the same as none, so you have to disambiguate
+with more of the path (`git worktree remove a/feature`) or all of it.
+
+There is no porcelain for these names -- `git worktree list --porcelain`
+reports path, HEAD, and branch, never the name -- so read them off disk:
+
+```sh
+# every worktree's internal name, mapped to its path
+for d in "$(git rev-parse --git-common-dir)"/worktrees/*/; do
+    printf '%-20s %s\n' "$(basename "$d")" "$(sed 's|/\.git$||' "$d/gitdir")"
+done
+
+# just the current worktree's name
+basename "$(git rev-parse --git-dir)"
+```
+
+The flat layout sidesteps all of this by construction. Every worktree is a
+direct child of the project root, and a directory can't hold two entries with
+the same name, so last path segments are unique, so internal names are unique.
+No counter suffixes, and every worktree answers to its own directory name.
+
+### Why nested names are rejected
+
+`git worktree-add` takes a *name* and joins it onto the project root:
+
+```zsh
+WORKTREE_PATH="${PROJECT_ROOT}/${WORKTREE_NAME}"
+```
+
+A name containing `/` is a relative path, and plain `git worktree add` creates
+the intermediate directories without complaint. Left unchecked, that undoes the
+guarantee above:
+
+```
+project/
+├── .git/
+├── a/wt/      <- .git/worktrees/wt
+└── b/wt/      <- .git/worktrees/wt1     <- collision is back
+```
+
+So `git worktree-add` requires a single path segment, and rejects anything else
+before it builds the path:
+
+```sh
+$ git worktree-add a/wt main
+Error: <worktree_name> must be a directory name, not a path: 'a/wt'
+```
+
+`.` and `..` are refused for the same reason -- `..` would put the worktree
+outside the project root entirely, which is the one thing the command promises
+never to do. Every rejection exits 128 and creates nothing.
+
+This is a constraint of *this* command, not of git. Plain `git worktree add`
+still takes an arbitrary path, so a nested worktree added that way lands
+outside the layout, counter suffix and all.
 
 ## Keeping your setup reproducible
 

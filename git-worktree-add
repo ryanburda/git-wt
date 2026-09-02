@@ -23,6 +23,9 @@ Arguments:
                    project root derived from the bare repo's location, never
                    the current directory, so the same command from a nested
                    subdirectory or another worktree lands in the same place.
+                   Names containing "/", and "." and "..", are rejected: every
+                   worktree is a direct child of the project root, which is what
+                   keeps git's internal worktree names unambiguous.
   <branch>         With two arguments, the existing branch (or any commit-ish)
                    to check out. With three, the start point for <new_branch>.
   <new_branch>     Optional. When given, a branch by this name is created off
@@ -52,6 +55,22 @@ fi
 WORKTREE_NAME=$1
 BRANCH=$2
 NEW_BRANCH=$3
+
+# <worktree_name> is joined onto the project root, so it has to be a single path
+# segment. A name containing "/" would nest the worktree, and git names a worktree
+# after the last segment of its path -- two nested worktrees ending in the same
+# segment collide and git silently disambiguates them as "wt", "wt1", leaving the
+# short name ambiguous. ".." would place the worktree outside the project entirely.
+case "$WORKTREE_NAME" in
+    */*)
+        echo "Error: <worktree_name> must be a directory name, not a path: '${WORKTREE_NAME}'" >&2
+        exit 128
+        ;;
+    ""|"."|"..")
+        echo "Error: invalid <worktree_name>: '${WORKTREE_NAME}'" >&2
+        exit 128
+        ;;
+esac
 
 if ! git rev-parse --git-dir > /dev/null 2>&1; then
     echo "Error: not inside a git repository" >&2
