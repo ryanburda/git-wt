@@ -7,11 +7,10 @@
 # Environment overrides:
 #   GIT_WT_HOME  where the repo is cloned  (default: ~/.local/share/git-wt)
 #   BIN_DIR      where symlinks are placed (default: ~/.local/bin)
-#   GIT_WT_REPO  clone URL                 (default: the GitHub HTTPS URL)
 
 set -eu
 
-REPO_URL=${GIT_WT_REPO:-https://github.com/ryanburda/git-wt.git}
+REPO_URL=https://github.com/ryanburda/git-wt.git
 GIT_WT_HOME=${GIT_WT_HOME:-"${XDG_DATA_HOME:-$HOME/.local/share}/git-wt"}
 BIN_DIR=${BIN_DIR:-"$HOME/.local/bin"}
 

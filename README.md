@@ -72,7 +72,6 @@ Overrides:
 | --- | --- |
 | `GIT_WT_HOME` | `~/.local/share/git-wt` (or `$XDG_DATA_HOME/git-wt`) |
 | `BIN_DIR` | `~/.local/bin` |
-| `GIT_WT_REPO` | `https://github.com/ryanburda/git-wt.git` |
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/ryanburda/git-wt/main/install.sh | BIN_DIR=~/bin sh
