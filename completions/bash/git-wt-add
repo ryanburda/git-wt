@@ -36,7 +36,7 @@ _git_wt_add ()
 		esac
 	done
 
-	# <worktree_name> <branch> [<new_branch>] — only <branch> is completable.
+	# <worktree_name> <branch> [<new_branch>]: only <branch> is completable.
 	if ((COMP_CWORD - idx == 2)); then
 		COMPREPLY=($(compgen -W "$(__git_ext_wt_add_branches)" -- "$cur"))
 	else

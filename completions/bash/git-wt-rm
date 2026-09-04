@@ -43,7 +43,7 @@ _git_wt_rm ()
 		return
 	fi
 
-	# [-f] <worktree_name> — count only the non-option words before the cursor,
+	# [-f] <worktree_name>: count only the non-option words before the cursor,
 	# so the name completes whether or not -f was given.
 	for ((i = idx + 1; i < COMP_CWORD; i++)); do
 		[[ ${COMP_WORDS[i]} == -* ]] || ((args++))

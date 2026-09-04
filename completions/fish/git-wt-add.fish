@@ -2,7 +2,7 @@
 # `git-wt-add` command.
 #
 # This registers completions for `git` itself, so it has to be loaded before
-# you complete a git command — install it into ~/.config/fish/conf.d/, not
+# you complete a git command. Install it into ~/.config/fish/conf.d/, not
 # ~/.config/fish/completions/ (which is only loaded when completing a command
 # of the same name).
 
@@ -34,7 +34,7 @@ function __git_ext_wt_add_at --argument-names want \
     test (math (count $tokens) - $idx + 1) -eq $want
 end
 
-# <worktree_name> <branch> [<new_branch>] — only <branch> is completable.
+# <worktree_name> <branch> [<new_branch>]: only <branch> is completable.
 complete -c git-wt-add -f
 complete -c git-wt-add -n '__git_ext_wt_add_at 2' \
     -a '(__git_ext_wt_add_branches)' -d Branch

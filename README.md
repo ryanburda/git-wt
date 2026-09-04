@@ -40,11 +40,7 @@ project/
 | `git seed` | Clone a repo and create its first worktree in one step |
 | `git wt-add` | Add a worktree in that layout |
 | `git wt-rm` | Remove a worktree from that layout |
-| `git wt-setup` | Run a project's `.worktree/setup` hook in a worktree |
-
-The worktree commands are `wt-`, not `worktree-`, on purpose: `git worktree-add`
-sits one missing hyphen away from git's own `git worktree add` — easy to
-misread, easy to mistype. `git wt-add` can't be confused for the builtin.
+| `git wt-setup` | Run a project's `.wt-setup/setup` hook in a worktree |
 
 ## Install
 
@@ -64,7 +60,7 @@ Make sure `~/.local/bin` is on your `PATH` (the installer warns if it isn't):
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
-Verify by running any command with no arguments — it prints its usage:
+Verify by running any command with no arguments; it prints its usage:
 
 ```sh
 git seed
@@ -205,7 +201,7 @@ project_a/
 Safe to re-run: an existing bare repo, worktree, or lock is left alone, so a
 setup script can call it on every bootstrap.
 
-The project's `.worktree/setup` hook is *not* run — that is
+The project's `.wt-setup/setup` hook is *not* run; that job belongs to
 [`git wt-setup`](#git-wt-setup), kept separate so that slow setup work stays
 opt-in.
 
@@ -239,7 +235,7 @@ regardless of where in the repo you run the command from. After creating it,
 the command sets the branch's upstream to `origin/<branch>` if that remote
 branch exists.
 
-Creating the worktree is all it does — preparing it is `git wt-setup`,
+Creating the worktree is all it does. Preparing it is `git wt-setup`,
 deliberately separate so slow setup work stays opt-in.
 
 ### `git wt-rm`
@@ -258,7 +254,7 @@ joined onto the project root, so it removes the same worktree no matter where
 in the repo you run it from.
 
 Only the worktree is removed; its branch is left alone. `-f` is required for a
-worktree that is locked or has modified or untracked files — without it,
+worktree that is locked or has modified or untracked files; without it,
 either is an error and nothing is removed. Since `git seed` locks `base`,
 removing the default worktree takes `-f` on purpose.
 
@@ -278,19 +274,19 @@ Safe to re-run: removing a worktree that isn't there prints the root and exits
 git wt-setup [<worktree_path>]
 ```
 
-Runs `<project_root>/.worktree/setup` from inside the given worktree, or the
+Runs `<project_root>/.wt-setup/setup` from inside the given worktree, or the
 current one if no path is given. Does nothing, successfully, when the project
 has no hook, so it's safe to call unconditionally.
 
 ```sh
 WT=$(git seed git@github.com:user/project_a.git ~/code/project_a)
-ln -sfn ~/repos/project_a ~/code/project_a/.worktree
+ln -sfn ~/repos/project_a ~/code/project_a/.wt-setup
 git -C "$WT" wt-setup
 ```
 
 #### Worktree setup hook
 
-`.worktree/` sits next to the bare `.git` directory at the project root — not
+`.wt-setup/` sits next to the bare `.git` directory at the project root, not
 inside a worktree, and therefore not tracked by the repo. It's per-clone,
 per-machine configuration: the right place for the untracked odds and ends a
 fresh checkout needs.
@@ -298,7 +294,7 @@ fresh checkout needs.
 ```
 ~/code/project_a/
 ├── .git/
-├── .worktree/
+├── .wt-setup/
 │   └── setup      <- runs in each new worktree
 ├── wt1/
 └── wt2/
@@ -306,52 +302,52 @@ fresh checkout needs.
 
 There is one hook per project, shared by every worktree under it. `git
 wt-setup` always looks it up from the project root, so it doesn't matter which
-worktree you run the command from — only which worktree it runs *against*.
+worktree you run the command from, only which worktree it runs *against*.
 
 #### Writing the hook
 
 Nothing creates the hook for you. `git seed` and `git wt-add` never write one,
-and since `.worktree/` is untracked it doesn't arrive with a clone either. On a
+and since `.wt-setup/` is untracked it doesn't arrive with a clone either. On a
 fresh project `git wt-setup` is a successful no-op until you put a file at that
 path yourself:
 
 ```
 $ git wt-setup
-No setup hook at /home/you/code/project_a/.worktree/setup; nothing to do.
+No setup hook at /home/you/code/project_a/.wt-setup/setup; nothing to do.
 ```
 
 So the whole of "installing" a hook is: make the directory, write the file,
 mark it executable. For most projects the file is one line:
 
 ```sh
-mkdir -p ~/code/project_a/.worktree
-cat > ~/code/project_a/.worktree/setup <<'EOF'
+mkdir -p ~/code/project_a/.wt-setup
+cat > ~/code/project_a/.wt-setup/setup <<'EOF'
 #!/bin/sh
 npm install
 EOF
-chmod +x ~/code/project_a/.worktree/setup
+chmod +x ~/code/project_a/.wt-setup/setup
 ```
 
 That's a complete hook. Every new worktree now gets its own `node_modules/`
 without you remembering to install anything.
 
 The `chmod +x` is the step that's easy to skip. `git wt-setup` doesn't source
-the file or hand it to a shell — it *executes* it — so the executable bit is
+the file or hand it to a shell; it *executes* it, so the executable bit is
 what makes it run at all. A `setup` that exists but isn't executable is treated
 as a mistake rather than as an absent hook, and is the one case where the
 command fails instead of shrugging:
 
 ```
 $ git wt-setup
-Error: /home/you/code/project_a/.worktree/setup exists but is not executable
+Error: /home/you/code/project_a/.wt-setup/setup exists but is not executable
 ```
 
-Because the file is executed, it can be *any* executable — the shebang picks
+Because the file is executed, it can be *any* executable: the shebang picks
 the language, and a compiled binary works just as well as a script:
 
 ```python
 #!/usr/bin/env python3
-# ~/code/project_a/.worktree/setup
+# ~/code/project_a/.wt-setup/setup
 import subprocess, venv
 venv.create(".venv", with_pip=True)
 subprocess.run([".venv/bin/pip", "install", "-r", "requirements.txt"], check=True)
@@ -359,33 +355,33 @@ subprocess.run([".venv/bin/pip", "install", "-r", "requirements.txt"], check=Tru
 
 #### How the hook runs
 
-- **Working directory** — the worktree being set up, so relative paths in the
-  hook land inside it: the `npm install` above writes `node_modules/` into
+- **Working directory**: the worktree being set up, so relative paths in the
+  hook land inside it. The `npm install` above writes `node_modules/` into
   that worktree, not into the project root. This holds however you invoked the
-  command — from the worktree, from a subdirectory of it, from a *different*
-  worktree with an explicit `<worktree_path>`, or through `git -C`.
-- **Arguments** — none. The worktree the hook is running in is `$PWD`.
-- **Environment** — inherited from your shell. `GIT_DIR` and `GIT_WORK_TREE`
+  command, whether from the worktree, from a subdirectory of it, from a
+  *different* worktree with an explicit `<worktree_path>`, or through `git -C`.
+- **Arguments**: none. The worktree the hook is running in is `$PWD`.
+- **Environment**: inherited from your shell. `GIT_DIR` and `GIT_WORK_TREE`
   are not exported, so a plain `git` call inside the hook resolves to the
   worktree it's running in, not to the bare repo.
-- **Exit status** — the hook's becomes the command's, so a hook that fails
+- **Exit status**: the hook's becomes the command's, so a hook that fails
   fails `git wt-setup`. Nothing is retried and no other worktree is touched.
 
 A hook that may run against an already-prepared worktree should be written to
-tolerate that — `git wt-setup` will happily run it again.
+tolerate that; `git wt-setup` will happily run it again.
 
 #### Keeping files next to the hook
 
-`setup` is only one file in `.worktree/`, and everything beside it is untracked
+`setup` is only one file in `.wt-setup/`, and everything beside it is untracked
 and per-clone for the same reason the hook is. That makes the directory a good
-home for the files every worktree needs but the repo doesn't carry — the
+home for the files every worktree needs but the repo doesn't carry: the
 `.env` that never gets committed, a local config override, a scratch database
 seed:
 
 ```
 ~/code/project_a/
 ├── .git/
-├── .worktree/
+├── .wt-setup/
 │   ├── setup           <- the hook
 │   ├── .env            <- files the hook puts into each worktree
 │   └── config.local.json
@@ -398,8 +394,8 @@ its working directory, the destination is just a relative path:
 
 ```sh
 #!/bin/sh
-# ~/code/project_a/.worktree/setup
-WT_DIR=$(git rev-parse --git-common-dir)/../.worktree
+# ~/code/project_a/.wt-setup/setup
+WT_DIR=$(git rev-parse --git-common-dir)/../.wt-setup
 
 cp "$WT_DIR/.env" .env                       # a private copy per worktree
 ln -sfn "$WT_DIR/config.local.json" .        # one shared file, linked in
@@ -413,7 +409,7 @@ it for all of them and for the next worktree you create.
 
 Whichever you pick, make sure the result is ignored. These files land *inside*
 the worktree, so anything the repo's `.gitignore` doesn't already cover shows
-up as untracked — and `git wt-rm` then refuses to remove that worktree without
+up as untracked, and `git wt-rm` then refuses to remove that worktree without
 `-f`:
 
 ```
@@ -429,11 +425,11 @@ echo '.env' >> ~/code/project_a/.git/info/exclude
 ```
 
 If you'd rather keep this whole directory under version control somewhere of
-your own, point `.worktree/` at it with a symlink instead of creating it —
-that's what the `ln -sfn` in the first example does:
+your own, point `.wt-setup/` at it with a symlink instead of creating it.
+That's what the `ln -sfn` in the first example does:
 
 ```sh
-ln -sfn ~/repos/project_a ~/code/project_a/.worktree
+ln -sfn ~/repos/project_a ~/code/project_a/.wt-setup
 ```
 
 ## Worktree names and the flat layout
@@ -463,9 +459,9 @@ fatal: 'feature' is not a working tree
 
 Git resolves a worktree argument by matching it against the tail of each
 worktree path; two matches count the same as none, so you have to disambiguate
-with more of the path. And there is no porcelain for these names —
+with more of the path. And there is no porcelain for these names:
 `git worktree list --porcelain` reports path, HEAD, and branch, never the
-name — so the only way to see them is to read them off disk:
+name, so the only way to see them is to read them off disk:
 
 ```sh
 # every worktree's internal name, mapped to its path
@@ -479,14 +475,14 @@ basename "$(git rev-parse --git-dir)"
 
 The flat layout sidesteps all of this by construction: every worktree is a
 direct child of the project root, a directory can't hold two entries with the
-same name, so last path segments — and therefore internal names — are unique.
+same name, so last path segments, and therefore internal names, are unique.
 Every worktree answers to its own directory name.
 
 ### Why nested names are rejected
 
 `git wt-add` takes a *name* and joins it onto the project root. A name
 containing `/` is a relative path, and plain `git worktree add` would happily
-create the intermediate directories — undoing the guarantee above:
+create the intermediate directories, undoing the guarantee above:
 
 ```
 project/
@@ -502,7 +498,7 @@ $ git wt-add a/wt main
 Error: <worktree_name> must be a directory name, not a path: 'a/wt'
 ```
 
-`.` and `..` are refused for the same reason — `..` would put the worktree
+`.` and `..` are refused for the same reason: `..` would put the worktree
 outside the project root entirely. Every rejection exits 128 and creates
 nothing.
 

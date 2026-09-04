@@ -2,7 +2,7 @@
 # `git-wt-setup` command.
 #
 # This registers completions for `git` itself, so it has to be loaded before
-# you complete a git command — install it into ~/.config/fish/conf.d/, not
+# you complete a git command. Install it into ~/.config/fish/conf.d/, not
 # ~/.config/fish/completions/ (which is only loaded when completing a command
 # of the same name).
 
@@ -34,7 +34,7 @@ function __git_ext_wt_setup_at --argument-names want \
     test (math (count $tokens) - $idx + 1) -eq $want
 end
 
-# [<worktree_path>] — the one optional argument.
+# [<worktree_path>]: the one optional argument.
 complete -c git-wt-setup -f
 complete -c git-wt-setup -n '__git_ext_wt_setup_at 1' \
     -a '(__git_ext_worktrees)' -d Worktree

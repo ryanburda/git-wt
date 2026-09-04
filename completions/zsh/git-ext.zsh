@@ -26,6 +26,6 @@ zstyle ':completion:*:*:git:*' user-commands \
     seed:'clone a repo and grow its first worktree in one step' \
     wt-add:'add a worktree in that layout' \
     wt-rm:'remove a worktree from that layout' \
-    wt-setup:'run the project .worktree/setup hook in a worktree'
+    wt-setup:'run the project .wt-setup/setup hook in a worktree'
 
 unset _git_ext_root

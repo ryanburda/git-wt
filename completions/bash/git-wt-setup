@@ -38,7 +38,7 @@ _git_wt_setup ()
 		esac
 	done
 
-	# [<worktree_path>] — only the one optional argument.
+	# [<worktree_path>]: only the one optional argument.
 	if ((COMP_CWORD - idx == 1)); then
 		COMPREPLY=($(compgen -W "$(__git_ext_worktrees)" -- "$cur"))
 	else

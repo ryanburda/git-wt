@@ -2,7 +2,7 @@
 # `git-wt-rm` command.
 #
 # This registers completions for `git` itself, so it has to be loaded before
-# you complete a git command — install it into ~/.config/fish/conf.d/, not
+# you complete a git command. Install it into ~/.config/fish/conf.d/, not
 # ~/.config/fish/completions/ (which is only loaded when completing a command
 # of the same name).
 
@@ -43,7 +43,7 @@ function __git_ext_wt_rm_at --argument-names want \
     test $args -eq (math $want - 1)
 end
 
-# [-f] <worktree_name> — the flags, plus the one name.
+# [-f] <worktree_name>: the flags, plus the one name.
 complete -c git-wt-rm -f
 complete -c git-wt-rm -s f -d 'Remove a locked worktree, or one with modified or untracked files'
 complete -c git-wt-rm -s h -d 'Print help and exit'

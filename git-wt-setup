@@ -8,7 +8,7 @@ Usage:
 
 Run the project's worktree setup hook against a worktree.
 
-The hook lives at <project_root>/.worktree/setup, next to the bare .git
+The hook lives at <project_root>/.wt-setup/setup, next to the bare .git
 directory.
 
 This is deliberately separate from `git wt-add`: setup can be slow, so
@@ -19,7 +19,7 @@ call unconditionally.
 
 The hook is yours to write:
   Nothing creates it for you. `git seed` and `git wt-add` never write it, and
-  .worktree/ is untracked, so it does not arrive with a clone either -- until
+  .wt-setup/ is untracked, so it does not arrive with a clone either -- until
   you put a file at that path yourself, this command is a no-op.
 
   Any executable file works. The hook is executed, not sourced, so the shebang
@@ -34,9 +34,9 @@ The hook is yours to write:
 
   To install it:
 
-    mkdir -p <project_root>/.worktree
-    $EDITOR <project_root>/.worktree/setup
-    chmod +x <project_root>/.worktree/setup
+    mkdir -p <project_root>/.wt-setup
+    $EDITOR <project_root>/.wt-setup/setup
+    chmod +x <project_root>/.wt-setup/setup
 
 How the hook runs:
   - Working directory is the target worktree, so relative paths in the hook
@@ -47,15 +47,15 @@ How the hook runs:
   - The hook's exit status becomes this command's exit status: a hook that
     fails fails `git wt-setup`.
 
-Other files in .worktree/:
+Other files in .wt-setup/:
   setup is only one file in that directory, and anything beside it is
   untracked and per-clone for the same reason the hook is. That makes
-  .worktree/ a good home for the files every worktree needs but the repo does
+  .wt-setup/ a good home for the files every worktree needs but the repo does
   not carry -- a .env, a local config override. The hook is what puts them in
   place, and since it runs inside the worktree the destination is a relative
   path:
 
-    WT_DIR=$(git rev-parse --git-common-dir)/../.worktree
+    WT_DIR=$(git rev-parse --git-common-dir)/../.wt-setup
     cp "$WT_DIR/.env" .env                 # a private copy per worktree
     ln -sfn "$WT_DIR/config.local.json" .  # one shared file, linked in
 
@@ -102,7 +102,7 @@ else
     WORKTREE_PATH=$(git rev-parse --show-toplevel)
 fi
 
-SETUP_SCRIPT="${PROJECT_ROOT}/.worktree/setup"
+SETUP_SCRIPT="${PROJECT_ROOT}/.wt-setup/setup"
 
 if [[ ! -e "$SETUP_SCRIPT" ]]; then
     echo "No setup hook at ${SETUP_SCRIPT}; nothing to do." >&2
