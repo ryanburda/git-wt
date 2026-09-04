@@ -1,11 +1,11 @@
-#compdef git-worktree-setup
+#compdef git-wt-setup
 #
-# zsh completion for `git worktree-setup` and for the standalone
-# `git-worktree-setup` command.
+# zsh completion for `git wt-setup` and for the standalone
+# `git-wt-setup` command.
 #
 # zsh's _git dispatches an unknown sub-command to a function named
-# `_git-<sub-command>`, so this file has to keep the name
-# `_git-worktree-setup` and sit on your fpath.
+# `_git-<sub-command>`, so this file has to keep the name `_git-wt-setup`
+# and sit on your fpath.
 
 __git_ext_worktrees() {
   local -a worktrees
@@ -20,9 +20,9 @@ __git_ext_worktrees() {
   _describe -t worktrees worktree worktrees
 }
 
-_git-worktree-setup() {
+_git-wt-setup() {
   # The single argument is optional: with none, the current worktree is used.
   _arguments -S '1:worktree path:__git_ext_worktrees'
 }
 
-_git-worktree-setup "$@"
+_git-wt-setup "$@"

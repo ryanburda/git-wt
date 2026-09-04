@@ -1,10 +1,10 @@
-# bash completion for `git worktree-setup` and for the standalone
-# `git-worktree-setup` command.
+# bash completion for `git wt-setup` and for the standalone
+# `git-wt-setup` command.
 #
 # git's own completion dispatches `git <sub-command>` to a function named
 # `_git_<sub_command>`, and asks bash-completion's lazy loader for a file named
 # `git-<sub-command>` when that function isn't defined yet. Naming this file
-# `git-worktree-setup` and defining `_git_worktree_setup` satisfies both.
+# `git-wt-setup` and defining `_git_wt_setup` satisfies both.
 
 __git_ext_worktrees ()
 {
@@ -22,16 +22,16 @@ __git_ext_worktrees ()
 	'
 }
 
-_git_worktree_setup ()
+_git_wt_setup ()
 {
 	local cur=${COMP_WORDS[COMP_CWORD]}
 	local i idx=0
 
 	# Find the sub-command so argument positions come out the same whether we
-	# were reached as `git worktree-setup` or as `git-worktree-setup`.
+	# were reached as `git wt-setup` or as `git-wt-setup`.
 	for ((i = 0; i < COMP_CWORD; i++)); do
 		case ${COMP_WORDS[i]} in
-		worktree-setup | git-worktree-setup | */git-worktree-setup)
+		wt-setup | git-wt-setup | */git-wt-setup)
 			idx=$i
 			break
 			;;
@@ -46,6 +46,6 @@ _git_worktree_setup ()
 	fi
 }
 
-# The `git worktree-setup` form is dispatched by git's completion; this covers
+# The `git wt-setup` form is dispatched by git's completion; this covers
 # running the command directly.
-complete -F _git_worktree_setup git-worktree-setup
+complete -F _git_wt_setup git-wt-setup

@@ -15,7 +15,7 @@ REPO_URL=${GIT_EXT_REPO:-https://github.com/ryanburda/git-ext.git}
 GIT_EXT_HOME=${GIT_EXT_HOME:-"${XDG_DATA_HOME:-$HOME/.local/share}/git-ext"}
 BIN_DIR=${BIN_DIR:-"$HOME/.local/bin"}
 
-COMMANDS="git-worktree-add git-worktree-remove git-worktree-setup git-seed"
+COMMANDS="git-wt-add git-wt-rm git-wt-setup git-seed"
 
 die() {
     echo "install.sh: $*" >&2

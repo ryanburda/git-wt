@@ -1,0 +1,117 @@
+#!/bin/zsh
+set -e
+
+usage() {
+    cat >&2 <<'EOF'
+Usage:
+  git wt-setup [<worktree_path>]
+
+Run the project's worktree setup hook against a worktree.
+
+The hook lives at <project_root>/.worktree/setup, next to the bare .git
+directory.
+
+This is deliberately separate from `git wt-add`: setup can be slow, so
+adding a worktree and preparing it are two different jobs.
+
+Does nothing (successfully) when the project has no hook, so it is safe to
+call unconditionally.
+
+The hook is yours to write:
+  Nothing creates it for you. `git seed` and `git wt-add` never write it, and
+  .worktree/ is untracked, so it does not arrive with a clone either -- until
+  you put a file at that path yourself, this command is a no-op.
+
+  Any executable file works. The hook is executed, not sourced, so the shebang
+  picks the language and a compiled binary is just as valid as a shell script.
+  The executable bit is what makes it run: a setup file that exists but is not
+  executable is reported as an error rather than skipped as an absent hook.
+
+  For most projects the whole hook is one line:
+
+    #!/bin/sh
+    npm install
+
+  To install it:
+
+    mkdir -p <project_root>/.worktree
+    $EDITOR <project_root>/.worktree/setup
+    chmod +x <project_root>/.worktree/setup
+
+How the hook runs:
+  - Working directory is the target worktree, so relative paths in the hook
+    land inside it.
+  - No arguments are passed.
+  - The environment is inherited. GIT_DIR and GIT_WORK_TREE are not set, so a
+    plain `git` call inside the hook refers to the worktree it runs in.
+  - The hook's exit status becomes this command's exit status: a hook that
+    fails fails `git wt-setup`.
+
+Other files in .worktree/:
+  setup is only one file in that directory, and anything beside it is
+  untracked and per-clone for the same reason the hook is. That makes
+  .worktree/ a good home for the files every worktree needs but the repo does
+  not carry -- a .env, a local config override. The hook is what puts them in
+  place, and since it runs inside the worktree the destination is a relative
+  path:
+
+    WT_DIR=$(git rev-parse --git-common-dir)/../.worktree
+    cp "$WT_DIR/.env" .env                 # a private copy per worktree
+    ln -sfn "$WT_DIR/config.local.json" .  # one shared file, linked in
+
+  Those files land inside the worktree, so anything the repo's .gitignore does
+  not already cover counts as untracked and `git wt-rm` will then refuse
+  without -f. List them in .git/info/exclude, which lives in the bare repo and
+  applies to every worktree.
+
+Arguments:
+  -h               Print this help and exit.
+  <worktree_path>  Optional. The directory the hook runs in. Defaults to the
+                   worktree containing the current directory. The hook itself
+                   is always looked up from the project root of the repo the
+                   command is run in, not from this path.
+
+Examples:
+  cd ~/code/project_a/base && git wt-setup
+  git -C ~/code/project_a/base wt-setup
+EOF
+}
+
+if [[ "$1" == "-h" ]]; then
+    usage
+    exit 0
+fi
+
+if [[ $# -gt 1 ]]; then
+    usage
+    exit 129
+fi
+
+if ! git rev-parse --git-dir > /dev/null 2>&1; then
+    echo "Error: not inside a git repository" >&2
+    exit 128
+fi
+
+BARE_DIR=$(cd "$(git rev-parse --git-common-dir)" && pwd)
+PROJECT_ROOT="${BARE_DIR%/.git}"
+
+if [[ -n "$1" ]]; then
+    [[ -d "$1" ]] || { echo "Error: $1 is not a directory" >&2; exit 128; }
+    WORKTREE_PATH=$(cd "$1" && pwd)
+else
+    WORKTREE_PATH=$(git rev-parse --show-toplevel)
+fi
+
+SETUP_SCRIPT="${PROJECT_ROOT}/.worktree/setup"
+
+if [[ ! -e "$SETUP_SCRIPT" ]]; then
+    echo "No setup hook at ${SETUP_SCRIPT}; nothing to do." >&2
+    exit 0
+fi
+
+if [[ ! -x "$SETUP_SCRIPT" ]]; then
+    echo "Error: ${SETUP_SCRIPT} exists but is not executable" >&2
+    exit 128
+fi
+
+(cd "$WORKTREE_PATH" && exec "$SETUP_SCRIPT")

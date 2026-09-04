@@ -1,12 +1,12 @@
-# bash completion for `git worktree-add` and for the standalone
-# `git-worktree-add` command.
+# bash completion for `git wt-add` and for the standalone
+# `git-wt-add` command.
 #
 # git's own completion dispatches `git <sub-command>` to a function named
 # `_git_<sub_command>`, and asks bash-completion's lazy loader for a file named
 # `git-<sub-command>` when that function isn't defined yet. Naming this file
-# `git-worktree-add` and defining `_git_worktree_add` satisfies both.
+# `git-wt-add` and defining `_git_wt_add` satisfies both.
 
-__git_ext_worktree_add_branches ()
+__git_ext_wt_add_branches ()
 {
 	# Prefer git's own wrapper, which honors `git -C <dir>` and `--git-dir`.
 	local g=git
@@ -20,16 +20,16 @@ __git_ext_worktree_add_branches ()
 	} 2> /dev/null | grep -vx HEAD | sort -u
 }
 
-_git_worktree_add ()
+_git_wt_add ()
 {
 	local cur=${COMP_WORDS[COMP_CWORD]}
 	local i idx=0
 
 	# Find the sub-command so argument positions come out the same whether we
-	# were reached as `git worktree-add` or as `git-worktree-add`.
+	# were reached as `git wt-add` or as `git-wt-add`.
 	for ((i = 0; i < COMP_CWORD; i++)); do
 		case ${COMP_WORDS[i]} in
-		worktree-add | git-worktree-add | */git-worktree-add)
+		wt-add | git-wt-add | */git-wt-add)
 			idx=$i
 			break
 			;;
@@ -38,12 +38,12 @@ _git_worktree_add ()
 
 	# <worktree_name> <branch> [<new_branch>] — only <branch> is completable.
 	if ((COMP_CWORD - idx == 2)); then
-		COMPREPLY=($(compgen -W "$(__git_ext_worktree_add_branches)" -- "$cur"))
+		COMPREPLY=($(compgen -W "$(__git_ext_wt_add_branches)" -- "$cur"))
 	else
 		COMPREPLY=()
 	fi
 }
 
-# The `git worktree-add` form is dispatched by git's completion; this covers
+# The `git wt-add` form is dispatched by git's completion; this covers
 # running the command directly.
-complete -F _git_worktree_add git-worktree-add
+complete -F _git_wt_add git-wt-add

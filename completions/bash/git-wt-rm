@@ -1,10 +1,10 @@
-# bash completion for `git worktree-remove` and for the standalone
-# `git-worktree-remove` command.
+# bash completion for `git wt-rm` and for the standalone
+# `git-wt-rm` command.
 #
 # git's own completion dispatches `git <sub-command>` to a function named
 # `_git_<sub_command>`, and asks bash-completion's lazy loader for a file named
 # `git-<sub-command>` when that function isn't defined yet. Naming this file
-# `git-worktree-remove` and defining `_git_worktree_remove` satisfies both.
+# `git-wt-rm` and defining `_git_wt_rm` satisfies both.
 
 __git_ext_worktree_names ()
 {
@@ -12,7 +12,7 @@ __git_ext_worktree_names ()
 	local g=git
 	declare -f __git > /dev/null 2>&1 && g=__git
 
-	# `git worktree-remove` takes a name, not a path, so report the last path
+	# `git wt-rm` takes a name, not a path, so report the last path
 	# segment. The bare repo is skipped: it isn't a worktree to remove.
 	$g worktree list --porcelain 2> /dev/null | awk '
 		/^worktree /{wt = substr($0, 10); bare = 0}
@@ -22,16 +22,16 @@ __git_ext_worktree_names ()
 	' | sed 's|.*/||'
 }
 
-_git_worktree_remove ()
+_git_wt_rm ()
 {
 	local cur=${COMP_WORDS[COMP_CWORD]}
 	local i idx=0 args=0
 
 	# Find the sub-command so argument positions come out the same whether we
-	# were reached as `git worktree-remove` or as `git-worktree-remove`.
+	# were reached as `git wt-rm` or as `git-wt-rm`.
 	for ((i = 0; i < COMP_CWORD; i++)); do
 		case ${COMP_WORDS[i]} in
-		worktree-remove | git-worktree-remove | */git-worktree-remove)
+		wt-rm | git-wt-rm | */git-wt-rm)
 			idx=$i
 			break
 			;;
@@ -56,6 +56,6 @@ _git_worktree_remove ()
 	fi
 }
 
-# The `git worktree-remove` form is dispatched by git's completion; this covers
+# The `git wt-rm` form is dispatched by git's completion; this covers
 # running the command directly.
-complete -F _git_worktree_remove git-worktree-remove
+complete -F _git_wt_rm git-wt-rm

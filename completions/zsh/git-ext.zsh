@@ -8,24 +8,24 @@
 #
 # .zshrc typically runs compinit before extensions like this are sourced, so
 # rather than adding to fpath and re-running compinit, the completion function
-# is autoloaded directly: zsh's _git dispatches `git worktree-add` to a
-# function named `_git-worktree-add`, and compdef binds the standalone command.
+# is autoloaded directly: zsh's _git dispatches `git wt-add` to a
+# function named `_git-wt-add`, and compdef binds the standalone command.
 
 _git_ext_root=${0:A:h:h:h}
 
 fpath=($_git_ext_root/completions/zsh $fpath)
-autoload -Uz _git-worktree-add
-compdef _git-worktree-add git-worktree-add
-autoload -Uz _git-worktree-remove
-compdef _git-worktree-remove git-worktree-remove
-autoload -Uz _git-worktree-setup
-compdef _git-worktree-setup git-worktree-setup
+autoload -Uz _git-wt-add
+compdef _git-wt-add git-wt-add
+autoload -Uz _git-wt-rm
+compdef _git-wt-rm git-wt-rm
+autoload -Uz _git-wt-setup
+compdef _git-wt-setup git-wt-setup
 
 # Offer the commands, with descriptions, when completing `git <TAB>`.
 zstyle ':completion:*:*:git:*' user-commands \
     seed:'clone a repo and grow its first worktree in one step' \
-    worktree-add:'add a worktree in that layout' \
-    worktree-remove:'remove a worktree from that layout' \
-    worktree-setup:'run the project .worktree/setup hook in a worktree'
+    wt-add:'add a worktree in that layout' \
+    wt-rm:'remove a worktree from that layout' \
+    wt-setup:'run the project .worktree/setup hook in a worktree'
 
 unset _git_ext_root

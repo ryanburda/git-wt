@@ -107,7 +107,7 @@ if [[ -z "$BRANCH" ]]; then
     BRANCH=$(git -C "$ROOT_PATH" symbolic-ref --short HEAD)
 fi
 
-WT=$(git -C "$ROOT_PATH" worktree-add "$WORKTREE_NAME" "$BRANCH")
+WT=$(git -C "$ROOT_PATH" wt-add "$WORKTREE_NAME" "$BRANCH")
 
 if (( LOCK )); then
     # Already locked is the normal state on a re-run; `worktree lock` exits 128

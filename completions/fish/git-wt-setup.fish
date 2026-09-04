@@ -1,5 +1,5 @@
-# fish completion for `git worktree-setup` and for the standalone
-# `git-worktree-setup` command.
+# fish completion for `git wt-setup` and for the standalone
+# `git-wt-setup` command.
 #
 # This registers completions for `git` itself, so it has to be loaded before
 # you complete a git command — install it into ~/.config/fish/conf.d/, not
@@ -15,16 +15,16 @@ function __git_ext_worktrees --description 'Worktrees of the current repo, exclu
     '
 end
 
-function __git_ext_worktree_setup_at --argument-names want \
+function __git_ext_wt_setup_at --argument-names want \
     --description 'Test whether the argument being completed is at the given position'
     set -l tokens (commandline --current-process --tokenize --cut-at-cursor)
     set -l idx 0
 
     # Find the sub-command so argument positions come out the same whether we
-    # were reached as `git worktree-setup` or as `git-worktree-setup`.
+    # were reached as `git wt-setup` or as `git-wt-setup`.
     for i in (seq (count $tokens))
         switch $tokens[$i]
-            case worktree-setup git-worktree-setup '*/git-worktree-setup'
+            case wt-setup git-wt-setup '*/git-wt-setup'
                 set idx $i
                 break
         end
@@ -35,8 +35,8 @@ function __git_ext_worktree_setup_at --argument-names want \
 end
 
 # [<worktree_path>] — the one optional argument.
-complete -c git-worktree-setup -f
-complete -c git-worktree-setup -n '__git_ext_worktree_setup_at 1' \
+complete -c git-wt-setup -f
+complete -c git-wt-setup -n '__git_ext_wt_setup_at 1' \
     -a '(__git_ext_worktrees)' -d Worktree
-complete -c git -n '__git_ext_worktree_setup_at 1' \
+complete -c git -n '__git_ext_wt_setup_at 1' \
     -a '(__git_ext_worktrees)' -d Worktree

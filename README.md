@@ -9,15 +9,15 @@ repo with every worktree as a direct sibling.
 # `git seed` is a worktree-first `git clone`. Just pass it a URL.
 git seed git@github.com:user/project.git
 
-# `git worktree-add` adds a worktree in the same layout.
+# `git wt-add` adds a worktree in the same layout.
 #
-#       worktree name     (optional) new branch name created off existing
-#                 |         |
-#                 v         v
-git worktree-add wt1 main feature
-#                      ^
-#                      |
-#                existing branch to check out
+# worktree name      (optional) new branch name created off existing
+#           |          |
+#           v          v
+git wt-add wt1 main feature
+#               ^
+#               |
+#         existing branch to check out
 ```
 
 The commands above produce:
@@ -26,7 +26,7 @@ The commands above produce:
 project/
 ├── .git/        <- bare repo  (created by `git seed`)
 ├── base/        <- worktree   (created by `git seed`)
-└── wt1/         <- worktree   (created by `git worktree-add`)
+└── wt1/         <- worktree   (created by `git wt-add`)
 ```
 
 - As with `git clone`, the project name is inferred from the URL and becomes
@@ -38,9 +38,13 @@ project/
 | Command | Purpose |
 | --- | --- |
 | `git seed` | Clone a repo and create its first worktree in one step |
-| `git worktree-add` | Add a worktree in that layout |
-| `git worktree-remove` | Remove a worktree from that layout |
-| `git worktree-setup` | Run a project's `.worktree/setup` hook in a worktree |
+| `git wt-add` | Add a worktree in that layout |
+| `git wt-rm` | Remove a worktree from that layout |
+| `git wt-setup` | Run a project's `.worktree/setup` hook in a worktree |
+
+The worktree commands are `wt-`, not `worktree-`, on purpose: `git worktree-add`
+sits one missing hyphen away from git's own `git worktree add` — easy to
+misread, easy to mistype. `git wt-add` can't be confused for the builtin.
 
 ## Install
 
@@ -84,18 +88,18 @@ Delete the symlinks and the checkout, plus any completion links from the
 section below:
 
 ```sh
-rm ~/.local/bin/git-{seed,worktree-add,worktree-remove,worktree-setup}
+rm ~/.local/bin/git-{seed,wt-add,wt-rm,wt-setup}
 rm -rf ~/.local/share/git-ext
 ```
 
 ## Completions
 
-`completions/` holds shell completions: `git worktree-add` completes the
-`<branch>` argument, and `git worktree-remove` and `git worktree-setup`
-complete the repo's worktrees.
+`completions/` holds shell completions: `git wt-add` completes the
+`<branch>` argument, and `git wt-rm` and `git wt-setup` complete the repo's
+worktrees.
 
 ```
-$ git worktree-add wt <TAB>
+$ git wt-add wt <TAB>
 feature/login  local-only  main  other  release-2.0
 ```
 
@@ -132,7 +136,7 @@ they are loaded on demand:
 
 ```sh
 mkdir -p ~/.local/share/bash-completion/completions
-for c in git-worktree-add git-worktree-remove git-worktree-setup; do
+for c in git-wt-add git-wt-rm git-wt-setup; do
     ln -sfn ~/.local/share/git-ext/completions/bash/$c \
             ~/.local/share/bash-completion/completions/$c
 done
@@ -142,9 +146,9 @@ Without bash-completion, source them from `~/.bashrc` after git's own
 completion:
 
 ```sh
-source ~/.local/share/git-ext/completions/bash/git-worktree-add
-source ~/.local/share/git-ext/completions/bash/git-worktree-remove
-source ~/.local/share/git-ext/completions/bash/git-worktree-setup
+source ~/.local/share/git-ext/completions/bash/git-wt-add
+source ~/.local/share/git-ext/completions/bash/git-wt-rm
+source ~/.local/share/git-ext/completions/bash/git-wt-setup
 ```
 
 </details>
@@ -157,7 +161,7 @@ These files register completions for `git` itself, so they belong in
 of the same name):
 
 ```fish
-for c in git-worktree-add git-worktree-remove git-worktree-setup
+for c in git-wt-add git-wt-rm git-wt-setup
     ln -sfn ~/.local/share/git-ext/completions/fish/$c.fish \
             ~/.config/fish/conf.d/$c.fish
 end
@@ -202,8 +206,8 @@ Safe to re-run: an existing bare repo, worktree, or lock is left alone, so a
 setup script can call it on every bootstrap.
 
 The project's `.worktree/setup` hook is *not* run — that is
-[`git worktree-setup`](#git-worktree-setup), kept separate so that slow setup
-work stays opt-in.
+[`git wt-setup`](#git-wt-setup), kept separate so that slow setup work stays
+opt-in.
 
 #### The bare repo
 
@@ -218,16 +222,16 @@ adding the worktree, `git seed` restores the ref layout of a normal clone:
 The result is a bare repo where upstream branches are `origin/<branch>` and
 local branches are yours.
 
-### `git worktree-add`
+### `git wt-add`
 
 ```
-git worktree-add <worktree_name> <branch>               # check out an existing branch
-git worktree-add <worktree_name> <branch> <new_branch>  # create new_branch off branch
+git wt-add <worktree_name> <branch>               # check out an existing branch
+git wt-add <worktree_name> <branch> <new_branch>  # create new_branch off branch
 ```
 
 ```sh
-git worktree-add wt1 main             # main checked out at $REPO_ROOT/wt1
-git worktree-add wt1 main feature     # branch "feature" off main at $REPO_ROOT/wt1
+git wt-add wt1 main             # main checked out at $REPO_ROOT/wt1
+git wt-add wt1 main feature     # branch "feature" off main at $REPO_ROOT/wt1
 ```
 
 The worktree is always created as a sibling of the bare `.git` directory,
@@ -235,23 +239,23 @@ regardless of where in the repo you run the command from. After creating it,
 the command sets the branch's upstream to `origin/<branch>` if that remote
 branch exists.
 
-Creating the worktree is all it does — preparing it is `git worktree-setup`,
+Creating the worktree is all it does — preparing it is `git wt-setup`,
 deliberately separate so slow setup work stays opt-in.
 
-### `git worktree-remove`
+### `git wt-rm`
 
 ```
-git worktree-remove [-f] <worktree_name>
+git wt-rm [-f] <worktree_name>
 ```
 
 ```sh
-git worktree-remove wt1        # remove $REPO_ROOT/wt1
-git worktree-remove -f base    # remove the locked base worktree
+git wt-rm wt1        # remove $REPO_ROOT/wt1
+git wt-rm -f base    # remove the locked base worktree
 ```
 
-The counterpart to `git worktree-add`: `<worktree_name>` is a name, not a
-path, joined onto the project root, so it removes the same worktree no matter
-where in the repo you run it from.
+The counterpart to `git wt-add`: `<worktree_name>` is a name, not a path,
+joined onto the project root, so it removes the same worktree no matter where
+in the repo you run it from.
 
 Only the worktree is removed; its branch is left alone. `-f` is required for a
 worktree that is locked or has modified or untracked files — without it,
@@ -262,16 +266,16 @@ The project root is printed on stdout, which is where you want to be if you
 just removed the worktree you were standing in:
 
 ```sh
-cd "$(git worktree-remove wt1)"
+cd "$(git wt-rm wt1)"
 ```
 
 Safe to re-run: removing a worktree that isn't there prints the root and exits
 0. A path that exists but is not a worktree of this repo is never deleted.
 
-### `git worktree-setup`
+### `git wt-setup`
 
 ```
-git worktree-setup [<worktree_path>]
+git wt-setup [<worktree_path>]
 ```
 
 Runs `<project_root>/.worktree/setup` from inside the given worktree, or the
@@ -281,7 +285,7 @@ has no hook, so it's safe to call unconditionally.
 ```sh
 WT=$(git seed git@github.com:user/project_a.git ~/code/project_a)
 ln -sfn ~/repos/project_a ~/code/project_a/.worktree
-git -C "$WT" worktree-setup
+git -C "$WT" wt-setup
 ```
 
 #### Worktree setup hook
@@ -300,11 +304,136 @@ fresh checkout needs.
 └── wt2/
 ```
 
+There is one hook per project, shared by every worktree under it. `git
+wt-setup` always looks it up from the project root, so it doesn't matter which
+worktree you run the command from — only which worktree it runs *against*.
+
+#### Writing the hook
+
+Nothing creates the hook for you. `git seed` and `git wt-add` never write one,
+and since `.worktree/` is untracked it doesn't arrive with a clone either. On a
+fresh project `git wt-setup` is a successful no-op until you put a file at that
+path yourself:
+
+```
+$ git wt-setup
+No setup hook at /home/you/code/project_a/.worktree/setup; nothing to do.
+```
+
+So the whole of "installing" a hook is: make the directory, write the file,
+mark it executable. For most projects the file is one line:
+
+```sh
+mkdir -p ~/code/project_a/.worktree
+cat > ~/code/project_a/.worktree/setup <<'EOF'
+#!/bin/sh
+npm install
+EOF
+chmod +x ~/code/project_a/.worktree/setup
+```
+
+That's a complete hook. Every new worktree now gets its own `node_modules/`
+without you remembering to install anything.
+
+The `chmod +x` is the step that's easy to skip. `git wt-setup` doesn't source
+the file or hand it to a shell — it *executes* it — so the executable bit is
+what makes it run at all. A `setup` that exists but isn't executable is treated
+as a mistake rather than as an absent hook, and is the one case where the
+command fails instead of shrugging:
+
+```
+$ git wt-setup
+Error: /home/you/code/project_a/.worktree/setup exists but is not executable
+```
+
+Because the file is executed, it can be *any* executable — the shebang picks
+the language, and a compiled binary works just as well as a script:
+
+```python
+#!/usr/bin/env python3
+# ~/code/project_a/.worktree/setup
+import subprocess, venv
+venv.create(".venv", with_pip=True)
+subprocess.run([".venv/bin/pip", "install", "-r", "requirements.txt"], check=True)
+```
+
+#### How the hook runs
+
+- **Working directory** — the worktree being set up, so relative paths in the
+  hook land inside it: the `npm install` above writes `node_modules/` into
+  that worktree, not into the project root. This holds however you invoked the
+  command — from the worktree, from a subdirectory of it, from a *different*
+  worktree with an explicit `<worktree_path>`, or through `git -C`.
+- **Arguments** — none. The worktree the hook is running in is `$PWD`.
+- **Environment** — inherited from your shell. `GIT_DIR` and `GIT_WORK_TREE`
+  are not exported, so a plain `git` call inside the hook resolves to the
+  worktree it's running in, not to the bare repo.
+- **Exit status** — the hook's becomes the command's, so a hook that fails
+  fails `git wt-setup`. Nothing is retried and no other worktree is touched.
+
+A hook that may run against an already-prepared worktree should be written to
+tolerate that — `git wt-setup` will happily run it again.
+
+#### Keeping files next to the hook
+
+`setup` is only one file in `.worktree/`, and everything beside it is untracked
+and per-clone for the same reason the hook is. That makes the directory a good
+home for the files every worktree needs but the repo doesn't carry — the
+`.env` that never gets committed, a local config override, a scratch database
+seed:
+
+```
+~/code/project_a/
+├── .git/
+├── .worktree/
+│   ├── setup           <- the hook
+│   ├── .env            <- files the hook puts into each worktree
+│   └── config.local.json
+├── wt1/
+└── wt2/
+```
+
+The hook is what gets them into a worktree. Since it runs with the worktree as
+its working directory, the destination is just a relative path:
+
 ```sh
 #!/bin/sh
 # ~/code/project_a/.worktree/setup
-cp ~/code/project_a/.worktree/.env .env
+WT_DIR=$(git rev-parse --git-common-dir)/../.worktree
+
+cp "$WT_DIR/.env" .env                       # a private copy per worktree
+ln -sfn "$WT_DIR/config.local.json" .        # one shared file, linked in
+
 npm install
+```
+
+Copy or symlink is a real choice: a copy lets each worktree drift
+independently, while a symlink means editing the file in one worktree changes
+it for all of them and for the next worktree you create.
+
+Whichever you pick, make sure the result is ignored. These files land *inside*
+the worktree, so anything the repo's `.gitignore` doesn't already cover shows
+up as untracked — and `git wt-rm` then refuses to remove that worktree without
+`-f`:
+
+```
+$ git wt-rm wt1
+fatal: '/home/you/code/project_a/wt1' contains modified or untracked files, use --force to delete it
+```
+
+`.git/info/exclude` is the natural place to list them: it lives in the bare
+repo, applies to every worktree, and is untracked itself.
+
+```sh
+echo '.env' >> ~/code/project_a/.git/info/exclude
+```
+
+If you'd rather keep this whole directory under version control somewhere of
+your own, point `.worktree/` at it with a symlink instead of creating it —
+that's what the `ln -sfn` in the first example does:
+
+```sh
+ln -sfn ~/repos/project_a ~/code/project_a/.worktree
 ```
 
 ## Worktree names and the flat layout
@@ -355,7 +484,7 @@ Every worktree answers to its own directory name.
 
 ### Why nested names are rejected
 
-`git worktree-add` takes a *name* and joins it onto the project root. A name
+`git wt-add` takes a *name* and joins it onto the project root. A name
 containing `/` is a relative path, and plain `git worktree add` would happily
 create the intermediate directories — undoing the guarantee above:
 
@@ -366,10 +495,10 @@ project/
 └── b/wt/      <- .git/worktrees/wt1     <- collision is back
 ```
 
-So `git worktree-add` requires a single path segment:
+So `git wt-add` requires a single path segment:
 
 ```sh
-$ git worktree-add a/wt main
+$ git wt-add a/wt main
 Error: <worktree_name> must be a directory name, not a path: 'a/wt'
 ```
 

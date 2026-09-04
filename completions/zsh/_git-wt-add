@@ -1,13 +1,13 @@
-#compdef git-worktree-add
+#compdef git-wt-add
 #
-# zsh completion for `git worktree-add` and for the standalone
-# `git-worktree-add` command.
+# zsh completion for `git wt-add` and for the standalone
+# `git-wt-add` command.
 #
 # zsh's _git dispatches an unknown sub-command to a function named
-# `_git-<sub-command>`, so this file has to keep the name `_git-worktree-add`
+# `_git-<sub-command>`, so this file has to keep the name `_git-wt-add`
 # and sit on your fpath.
 
-__git_ext_worktree_add_branches() {
+__git_ext_wt_add_branches() {
   local -a branches
   # Local branches, plus remote branches with the remote name stripped:
   # `git worktree add` resolves a bare `topic` to `origin/topic` itself.
@@ -19,11 +19,11 @@ __git_ext_worktree_add_branches() {
   _describe -t branches branch branches
 }
 
-_git-worktree-add() {
+_git-wt-add() {
   _arguments -S \
     '1:worktree name:' \
-    '2:branch:__git_ext_worktree_add_branches' \
+    '2:branch:__git_ext_wt_add_branches' \
     '3:new branch:'
 }
 
-_git-worktree-add "$@"
+_git-wt-add "$@"

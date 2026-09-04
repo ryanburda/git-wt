@@ -4,15 +4,15 @@ set -e
 usage() {
     cat >&2 <<'EOF'
 Usage:
-  git worktree-add <worktree_name> <branch> [<new_branch>]
+  git wt-add <worktree_name> <branch> [<new_branch>]
 
 Works with `git seed` to enforce a repo
 folder structure that accommodates worktrees:
 
   $root_path/
   ├── .git/              <- bare repo (created by seed)
-  ├── feature-a/         <- worktree (created by worktree-add)
-  └── feature-b/         <- worktree (created by worktree-add)
+  ├── feature-a/         <- worktree (created by wt-add)
+  └── feature-b/         <- worktree (created by wt-add)
 
 The worktree is created as a sibling of the .git bare repo directory,
 regardless of where the command is run from within the repo.
@@ -37,8 +37,8 @@ Returns:
   safe to re-run.
 
 Examples:
-  git worktree-add wt1 main          # checkout main in $root_path/wt1
-  git worktree-add wt1 main feature  # create branch "feature" off main in $root_path/wt1
+  git wt-add wt1 main          # checkout main in $root_path/wt1
+  git wt-add wt1 main feature  # create branch "feature" off main in $root_path/wt1
 EOF
 }
 

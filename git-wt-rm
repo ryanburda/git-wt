@@ -4,21 +4,21 @@ set -e
 usage() {
     cat >&2 <<'EOF'
 Usage:
-  git worktree-remove [-f] <worktree_name>
+  git wt-rm [-f] <worktree_name>
 
-The counterpart to `git worktree-add`. Removes a worktree from the repo
+The counterpart to `git wt-add`. Removes a worktree from the repo
 folder structure those commands enforce:
 
   $root_path/
   ├── .git/              <- bare repo (created by seed)
-  ├── feature-a/         <- worktree (created by worktree-add)
-  └── feature-b/         <- worktree (removed by worktree-remove)
+  ├── feature-a/         <- worktree (created by wt-add)
+  └── feature-b/         <- worktree (removed by wt-rm)
 
 The worktree is looked up as a sibling of the .git bare repo directory,
 regardless of where the command is run from within the repo.
 
 Only the worktree is removed. The branch it had checked out is left alone,
-the same way `git worktree-add` leaves branches to `git branch`.
+the same way `git wt-add` leaves branches to `git branch`.
 
 Arguments:
   -f               Force. Removes a worktree that is locked, or that has
@@ -39,15 +39,15 @@ Returns:
   Prints the absolute path of the project root on stdout, which is where you
   end up if the worktree you removed is the one you were standing in:
 
-    cd "$(git worktree-remove wt1)"
+    cd "$(git wt-rm wt1)"
 
   Removing a worktree that isn't there is a no-op that still prints the root
   and exits 0, so this is safe to re-run. A path that exists but is not a
   worktree of this repo is never deleted; it is an error.
 
 Examples:
-  git worktree-remove wt1       # remove $root_path/wt1
-  git worktree-remove -f base   # remove the locked base worktree
+  git wt-rm wt1       # remove $root_path/wt1
+  git wt-rm -f base   # remove the locked base worktree
 EOF
 }
 
@@ -76,7 +76,7 @@ while [[ "$WORKTREE_NAME" == */ ]]; do
 done
 
 # <worktree_name> is joined onto the project root, so it has to be a single path
-# segment, for the same reason `git worktree-add` requires one: every worktree in
+# segment, for the same reason `git wt-add` requires one: every worktree in
 # this layout is a direct child of the project root. Anything else names a path
 # this command didn't create and won't delete. ".git" is the bare repo itself.
 case "$WORKTREE_NAME" in
@@ -111,7 +111,7 @@ WORKTREE_RECORD=$(git worktree list --porcelain | awk -v target="worktree ${WORK
 if [[ -z "$WORKTREE_RECORD" ]]; then
     # An unrelated directory that happens to sit at that name is not ours to
     # delete; that is a collision, and it fails the same way it does in
-    # `git worktree-add`. Nothing there at all is just an already-done remove.
+    # `git wt-add`. Nothing there at all is just an already-done remove.
     if [[ -e "$WORKTREE_PATH" ]]; then
         echo "Error: ${WORKTREE_PATH} exists and is not a worktree of this repo" >&2
         exit 128
