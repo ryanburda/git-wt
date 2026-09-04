@@ -6,8 +6,8 @@ usage() {
 Usage:
   git seed [-b <branch>] [-w <worktree_name>] [-n] <repo_url> [<root_path>]
 
-The worktree-first version of `git clone` that clones
-a repo and grow its first worktree, in one step.
+The worktree-first version of `git clone`: clones a repo
+and creates its first worktree, in one step.
 
   $<root_path>/
   ├── .git/        <- bare repo
@@ -31,10 +31,10 @@ EOF
 }
 
 BRANCH=""
-# Why choose "base" as the default worktree name. It actually makes
-# more sense to describe alternative names that didn't quite work:
-#   - main/master shaddows default branch naming conventions
-#   - root (of a tree) envokes the idea of a superuser
+# Why "base" as the default worktree name? Easiest to explain by the
+# alternatives that didn't quite work:
+#   - main/master shadows default branch naming conventions
+#   - root (of a tree) evokes the idea of a superuser
 #   - trunk carries its own meaning from older version control systems
 # "base" is short, claimed by nothing else, and says what it is -- the
 # base worktree that all other worktrees get added alongside.

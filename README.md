@@ -2,17 +2,14 @@
 
 *Git external commands for a worktree-first workflow.*
 
-If you're reading this you already know why worktrees are nice. These are just some small
-wrappers around the git commands it make it easier to enforce a simple repo layout.
+Small wrappers around git commands that enforce a simple repo layout: a bare
+repo with every worktree as a direct sibling.
 
-``` sh
-# `git seed` is a worktree-first version of `git clone`.
-# Just pass it a URL
-#                 |
-#                 v
+```sh
+# `git seed` is a worktree-first `git clone`. Just pass it a URL.
 git seed git@github.com:user/project.git
 
-# `git worktree-add` wraps `git worktree add` to enforce the repo structure.
+# `git worktree-add` adds a worktree in the same layout.
 #
 #       worktree name     (optional) new branch name created off existing
 #                 |         |
@@ -20,31 +17,27 @@ git seed git@github.com:user/project.git
 git worktree-add wt1 main feature
 #                      ^
 #                      |
-#                existing branch to check out 
+#                existing branch to check out
 ```
 
-Running the commands above results in the folder structure below.
+The commands above produce:
 
 ```
-../project/
+project/
 ├── .git/        <- bare repo  (created by `git seed`)
 ├── base/        <- worktree   (created by `git seed`)
 └── wt1/         <- worktree   (created by `git worktree-add`)
 ```
 
-- Similar to `git clone`, the project name is inferred by the URL and is used
-to create the top level directory of the repo.
-- the `.git` folder contains the bare repo
-- the `base` worktree was created and locked by `git seed` to act as your "default" worktree
-- the `wt1` worktree exists along side the bare repo and the `base` worktree
-- keeping every worktree a direct child of the project root is also what keeps
-git's [internal worktree names](#worktree-names-and-the-flat-layout) unique
-
-### Command overview
+- As with `git clone`, the project name is inferred from the URL and becomes
+  the top-level directory.
+- `base` is created and locked by `git seed` to act as your "default" worktree.
+- Keeping every worktree a direct child of the project root keeps git's
+  [internal worktree names](#worktree-names-and-the-flat-layout) unique.
 
 | Command | Purpose |
 | --- | --- |
-| `git seed` | Clone a repo and grow its first worktree in one step |
+| `git seed` | Clone a repo and create its first worktree in one step |
 | `git clone-bare` | Clone a repo as a bare repo laid out for worktrees |
 | `git worktree-add` | Add a worktree in that layout |
 | `git worktree-remove` | Remove a worktree from that layout |
@@ -59,28 +52,22 @@ curl -fsSL https://raw.githubusercontent.com/ryanburda/git-ext/main/install.sh |
 The script clones this repo to `~/.local/share/git-ext` and symlinks the
 commands into `~/.local/bin`. Re-running it updates the checkout in place.
 
-Make sure `~/.local/bin` is on your `PATH`. The installer warns you if it isn't:
+The commands are zsh scripts, so zsh must be installed. The installer itself
+is POSIX `sh`.
+
+Make sure `~/.local/bin` is on your `PATH` (the installer warns if it isn't):
 
 ```sh
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
-Verify:
+Verify by running any command with no arguments — it prints its usage:
 
 ```sh
-git seed            # prints usage
-git clone-bare      # prints usage
-git worktree-add    # prints usage
-git worktree-remove # prints usage
-git worktree-setup  # runs the hook, if any
+git seed
 ```
 
-TODO: Do the scripts have to be zsh? Investigate pros/cons.
-
-The commands themselves are zsh scripts, so zsh must be installed. The
-installer is POSIX `sh`, so it runs under whatever shell you pipe it to.
-
-Overrides, if the defaults don't suit you:
+Overrides:
 
 | Variable | Default |
 | --- | --- |
@@ -94,7 +81,8 @@ curl -fsSL https://raw.githubusercontent.com/ryanburda/git-ext/main/install.sh |
 
 ## Uninstall
 
-To uninstall, delete the symlinks and the checkout, plus any completion links from the section below:
+Delete the symlinks and the checkout, plus any completion links from the
+section below:
 
 ```sh
 rm ~/.local/bin/git-{clone-bare,worktree-add,worktree-remove,worktree-setup,seed}
@@ -103,17 +91,17 @@ rm -rf ~/.local/share/git-ext
 
 ## Completions
 
-`completions/` holds shell completions for these git extensions.
-For example, `git worktree-add` completes the `<branch>` argument, and
-`git worktree-remove` and `git worktree-setup` complete the repo's worktrees.
+`completions/` holds shell completions: `git worktree-add` completes the
+`<branch>` argument, and `git worktree-remove` and `git worktree-setup`
+complete the repo's worktrees.
 
 ```
 $ git worktree-add wt <TAB>
 feature/login  local-only  main  other  release-2.0
 ```
 
-The installer leaves these files at `~/.local/share/git-ext/completions/`; each
-shell needs one line to pick them up.
+The installer leaves these files at `~/.local/share/git-ext/completions/`;
+each shell needs one line to pick them up.
 
 <details>
 <summary>zsh</summary>
@@ -124,15 +112,12 @@ Source `git-ext.zsh` from `~/.zshrc`:
 source ~/.local/share/git-ext/completions/zsh/git-ext.zsh
 ```
 
-It works wherever you put that line, including after `compinit` has already
-run: rather than relying on `compinit` to scan `fpath`, it autoloads the
-completion function itself. zsh dispatches an unknown git sub-command to a
-function named `_git-<sub-command>`, so `_git-worktree-add` has to keep its
-name but it does not have to be on `fpath` before `compinit`.
+This works even after `compinit` has run: instead of relying on `compinit` to
+scan `fpath`, it autoloads the completion functions itself. It also registers
+descriptions, so the commands show up in `git <TAB>`.
 
-It also registers descriptions, so the commands show up in `git <TAB>`.
-
-If your `.zshrc` sources a directory of extension scripts, symlink it in instead:
+If your `.zshrc` sources a directory of extension scripts, symlink it in
+instead:
 
 ```zsh
 ln -s ~/.local/share/git-ext/completions/zsh/git-ext.zsh ~/.zsh/zshrc_extensions/git-ext.zsh
@@ -143,7 +128,8 @@ ln -s ~/.local/share/git-ext/completions/zsh/git-ext.zsh ~/.zsh/zshrc_extensions
 <details>
 <summary>bash</summary>
 
-With bash-completion installed, symlink the file into its user directory and it is loaded on demand:
+With bash-completion installed, symlink the files into its user directory and
+they are loaded on demand:
 
 ```sh
 mkdir -p ~/.local/share/bash-completion/completions
@@ -153,7 +139,7 @@ for c in git-worktree-add git-worktree-remove git-worktree-setup; do
 done
 ```
 
-Without bash-completion, source it from `~/.bashrc` after git's own
+Without bash-completion, source them from `~/.bashrc` after git's own
 completion:
 
 ```sh
@@ -167,9 +153,9 @@ source ~/.local/share/git-ext/completions/bash/git-worktree-setup
 <details>
 <summary>fish</summary>
 
-This file registers completions for `git` itself, so it has to be loaded
-before you complete a git command. `conf.d/` should be used instead of
-`completions/` (which fish only loads when completing a command of the same name):
+These files register completions for `git` itself, so they belong in
+`conf.d/`, not `completions/` (which fish only loads when completing a command
+of the same name):
 
 ```fish
 for c in git-worktree-add git-worktree-remove git-worktree-setup
@@ -182,11 +168,10 @@ end
 
 ## Usage
 
-TODO: clean up
-
 ### `git seed`
 
-A worktree-first version of `git clone`
+A worktree-first `git clone`: clones a bare repo and creates its first
+worktree in one step.
 
 ```
 git seed [-b <branch>] [-w <worktree_name>] [-n] <repo_url> [<root_path>]
@@ -198,28 +183,24 @@ git seed [-b <branch>] [-w <worktree_name>] [-n] <repo_url> [<root_path>]
 | `-w <name>` | `base` | worktree directory name |
 | `-n` | lock | don't lock the worktree |
 
-**Example**:
 ```sh
 git seed git@github.com:user/project_a.git
 ```
-**Produces**:
 ```
-../project_a/
+project_a/
 ├── .git/          <- bare repo
 └── base/          <- worktree, on the remote's default branch, locked
 ```
-**Explaination**:
-- With no `<root_path>`, the project name is derived from the URL and created
-under the current directory, matching `git clone`'s behavior.
-- The branch comes from the remote's `HEAD`, so repos on `main` and repos on
-`master` both work without being told which.
-- The worktree directory is called `base` rather than being named after the branch.
-- The worktree is locked by default enforcing that at least one worktree be thought of
-as the "default" worktree. Locking prevents `git worktree prune` from removing it.
 
-Safe to re-run: an existing bare repo, worktree, or lock is each left alone, so
-a setup script can call it on every bootstrap. Only `<root_path>/.git` and the
-worktree directory are written, so an existing project root is fine.
+- With no `<root_path>`, the project name is derived from the URL and created
+  under the current directory, matching `git clone`.
+- The branch comes from the remote's `HEAD`, so repos on `main` and repos on
+  `master` both work without being told which.
+- The worktree is locked by default, marking it as the "default" worktree and
+  protecting it from `git worktree prune`.
+
+Safe to re-run: an existing bare repo, worktree, or lock is left alone, so a
+setup script can call it on every bootstrap.
 
 The project's `.worktree/setup` hook is *not* run — that is
 [`git worktree-setup`](#git-worktree-setup), kept separate so that slow setup
@@ -232,19 +213,18 @@ git clone-bare <repo_url> [<root_path>]
 ```
 
 Clones into `<root_path>/.git` as a bare repo. With no `<root_path>`, the
-project name is derived from the URL and created under the current directory,
-matching `git clone`'s behavior.
+project name is derived from the URL, matching `git clone`.
 
-A plain `git clone --bare` isn't ideal for day-to-day development since it's built
-to be a server-side mirror. This means it maps every upstream branch into
-`refs/heads/*` and has no local/remote distinction. This command restores it:
+A plain `git clone --bare` is built to be a server-side mirror: it maps every
+upstream branch into `refs/heads/*` and has no local/remote distinction. This
+command restores the layout of a normal clone:
 
 - sets `remote.origin.fetch` to the standard `+refs/heads/*:refs/remotes/origin/*`
 - deletes every local branch except the default one
 - re-fetches, populating `refs/remotes/origin/*`
 
-The result is a bare repo whose refs look like a normal clone's, so upstream
-branches are `origin/<branch>` and local branches are yours.
+The result is a bare repo where upstream branches are `origin/<branch>` and
+local branches are yours.
 
 ### `git worktree-add`
 
@@ -259,14 +239,12 @@ git worktree-add wt1 main feature     # branch "feature" off main at $REPO_ROOT/
 ```
 
 The worktree is always created as a sibling of the bare `.git` directory,
-regardless of where in the repo you run the command from.
+regardless of where in the repo you run the command from. After creating it,
+the command sets the branch's upstream to `origin/<branch>` if that remote
+branch exists.
 
-After creating it, the command sets the branch's upstream to `origin/<branch>` if
-that remote branch exists.
-
-Creating the worktree is all it does. Preparing that worktree is
-`git worktree-setup`, deliberately a separate command: setup can be slow, and
-adding a worktree shouldn't drag that along every time.
+Creating the worktree is all it does — preparing it is `git worktree-setup`,
+deliberately separate so slow setup work stays opt-in.
 
 ### `git worktree-remove`
 
@@ -279,17 +257,14 @@ git worktree-remove wt1        # remove $REPO_ROOT/wt1
 git worktree-remove -f base    # remove the locked base worktree
 ```
 
-The counterpart to `git worktree-add`, and it resolves the worktree the same
-way: `<worktree_name>` is a name, not a path, joined onto the project root, so
-it removes the same worktree no matter where in the repo you run it from.
+The counterpart to `git worktree-add`: `<worktree_name>` is a name, not a
+path, joined onto the project root, so it removes the same worktree no matter
+where in the repo you run it from.
 
-Only the worktree is removed. The branch it had checked out is left alone, the
-same way `git worktree-add` leaves branches to `git branch`.
-
-`-f` is required for a worktree that is locked, or that has modified or
-untracked files; without it either one is an error and nothing is removed.
-Since `git seed` locks `base`, removing the default worktree takes `-f` on
-purpose.
+Only the worktree is removed; its branch is left alone. `-f` is required for a
+worktree that is locked or has modified or untracked files — without it,
+either is an error and nothing is removed. Since `git seed` locks `base`,
+removing the default worktree takes `-f` on purpose.
 
 The project root is printed on stdout, which is where you want to be if you
 just removed the worktree you were standing in:
@@ -298,10 +273,8 @@ just removed the worktree you were standing in:
 cd "$(git worktree-remove wt1)"
 ```
 
-Safe to re-run: removing a worktree that isn't there reports it on stderr,
-prints the root, and exits 0. A path that exists but is not a worktree of this
-repo is never deleted -- that is a name collision, and it fails, exactly as it
-does in `git worktree-add`.
+Safe to re-run: removing a worktree that isn't there prints the root and exits
+0. A path that exists but is not a worktree of this repo is never deleted.
 
 ### `git worktree-setup`
 
@@ -311,7 +284,7 @@ git worktree-setup [<worktree_path>]
 
 Runs `<project_root>/.worktree/setup` from inside the given worktree, or the
 current one if no path is given. Does nothing, successfully, when the project
-has no hook -- so it's safe to call unconditionally.
+has no hook, so it's safe to call unconditionally.
 
 ```sh
 WT=$(git seed git@github.com:user/project_a.git ~/code/project_a)
@@ -321,13 +294,10 @@ git -C "$WT" worktree-setup
 
 #### Worktree setup hook
 
-`git worktree-setup` runs `<project_root>/.worktree/setup` from inside a
-worktree, if the project has one.
-
-Note the location: `.worktree/` sits next to the bare `.git` directory, at the
-project root, *not* inside a worktree, and therefore not tracked by the repo.
-It's per-clone, per-machine configuration, which is what makes it the right
-place for the untracked odds and ends a fresh checkout needs:
+`.worktree/` sits next to the bare `.git` directory at the project root — not
+inside a worktree, and therefore not tracked by the repo. It's per-clone,
+per-machine configuration: the right place for the untracked odds and ends a
+fresh checkout needs.
 
 ```
 ~/code/project_a/
@@ -347,11 +317,10 @@ npm install
 
 ## Worktree names and the flat layout
 
-Worktrees look nameless, but git gives every one an internal name and keeps its
-metadata under the bare repo at `.git/worktrees/<name>/`.
-
-That name is just the last path segment of the worktree. When two worktrees
-share a last segment, git doesn't complain -- it appends a counter:
+Git gives every worktree an internal name and keeps its metadata under the
+bare repo at `.git/worktrees/<name>/`. The name is the last path segment of
+the worktree. When two worktrees share a last segment, git appends a counter
+rather than complaining:
 
 ```sh
 git worktree add --detach ~/scratch/a/feature
@@ -363,20 +332,19 @@ git worktree add --detach ~/scratch/b/feature
 └── feature1/    <- ~/scratch/b/feature
 ```
 
-Nothing breaks, but the short name you would reach for is now ambiguous, and
-the error doesn't say so:
+Nothing breaks, but the short name is now ambiguous, and the error doesn't say
+so:
 
 ```sh
 $ git worktree remove feature
 fatal: 'feature' is not a working tree
 ```
 
-git resolves a worktree argument by matching it against the tail of each
-worktree path. Two matches count the same as none, so you have to disambiguate
-with more of the path (`git worktree remove a/feature`) or all of it.
-
-There is no porcelain for these names -- `git worktree list --porcelain`
-reports path, HEAD, and branch, never the name -- so read them off disk:
+Git resolves a worktree argument by matching it against the tail of each
+worktree path; two matches count the same as none, so you have to disambiguate
+with more of the path. And there is no porcelain for these names —
+`git worktree list --porcelain` reports path, HEAD, and branch, never the
+name — so the only way to see them is to read them off disk:
 
 ```sh
 # every worktree's internal name, mapped to its path
@@ -388,22 +356,16 @@ done
 basename "$(git rev-parse --git-dir)"
 ```
 
-The flat layout sidesteps all of this by construction. Every worktree is a
-direct child of the project root, and a directory can't hold two entries with
-the same name, so last path segments are unique, so internal names are unique.
-No counter suffixes, and every worktree answers to its own directory name.
+The flat layout sidesteps all of this by construction: every worktree is a
+direct child of the project root, a directory can't hold two entries with the
+same name, so last path segments — and therefore internal names — are unique.
+Every worktree answers to its own directory name.
 
 ### Why nested names are rejected
 
-`git worktree-add` takes a *name* and joins it onto the project root:
-
-```zsh
-WORKTREE_PATH="${PROJECT_ROOT}/${WORKTREE_NAME}"
-```
-
-A name containing `/` is a relative path, and plain `git worktree add` creates
-the intermediate directories without complaint. Left unchecked, that undoes the
-guarantee above:
+`git worktree-add` takes a *name* and joins it onto the project root. A name
+containing `/` is a relative path, and plain `git worktree add` would happily
+create the intermediate directories — undoing the guarantee above:
 
 ```
 project/
@@ -412,64 +374,16 @@ project/
 └── b/wt/      <- .git/worktrees/wt1     <- collision is back
 ```
 
-So `git worktree-add` requires a single path segment, and rejects anything else
-before it builds the path:
+So `git worktree-add` requires a single path segment:
 
 ```sh
 $ git worktree-add a/wt main
 Error: <worktree_name> must be a directory name, not a path: 'a/wt'
 ```
 
-`.` and `..` are refused for the same reason -- `..` would put the worktree
-outside the project root entirely, which is the one thing the command promises
-never to do. Every rejection exits 128 and creates nothing.
+`.` and `..` are refused for the same reason — `..` would put the worktree
+outside the project root entirely. Every rejection exits 128 and creates
+nothing.
 
-This is a constraint of *this* command, not of git. Plain `git worktree add`
-still takes an arbitrary path, so a nested worktree added that way lands
-outside the layout, counter suffix and all.
-
-## Keeping your setup reproducible
-
-TODO: clean up
-
-The `.worktree/` directory is deliberately outside the project's own repo,
-which means nothing is tracking it. Left alone, the setup script you wrote
-only exists on this machine and vanishes if anything were to happen to it.
-
-Therefore, it is a good idea to keep repo setup scripts in a dedicated private
-repo instead. A `repos` repo, holding one directory per project, plus a top-level
-script that recreates every clone from scratch is an easy, version controlled, way
-to setup all of your projects on a fresh machine:
-
-```
-~/repos/                  <- private git repo
-├── setup                 <- recreates every project below
-├── project_a/
-│   ├── setup             <- becomes project_a's .worktree/setup
-│   └── .env
-└── project_b/
-    └── setup
-```
-
-Symlink each project directory into place as its `.worktree`, so the setup
-script and the untracked files it copies travel together:
-
-```sh
-ln -s ~/repos/project_a ~/code/project_a/.worktree
-```
-
-The top-level `~/repos/setup` then does the whole job end to end of cloning,
-linking, and creating the first worktree:
-
-```sh
-#!/bin/sh
-# ~/repos/setup
-set -e
-
-WT=$(git seed git@github.com:user/project_a.git ~/code/project_a)
-ln -sfn ~/repos/project_a ~/code/project_a/.worktree
-git -C "$WT" worktree-setup
-```
-
-Because setup is its own step, the hook only has to be linked before
-`git worktree-setup` runs -- the order of the first two lines doesn't matter.
+This is a constraint of *this* command, not of git: plain `git worktree add`
+still takes an arbitrary path.

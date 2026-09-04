@@ -8,12 +8,11 @@ Usage:
 
 Run the project's worktree setup hook against a worktree.
 
-The hook lives at <project_root>/.worktree/setup next to the bare .git
-directory
+The hook lives at <project_root>/.worktree/setup, next to the bare .git
+directory.
 
-This is deliberately separate from `git worktree-add` since setting up a worktree
-can be slow. Adding a worktree and preparing it are two different jobs, so you
-ask for the second one when you want it.
+This is deliberately separate from `git worktree-add`: setup can be slow, so
+adding a worktree and preparing it are two different jobs.
 
 Does nothing (successfully) when the project has no hook, so it is safe to
 call unconditionally.
