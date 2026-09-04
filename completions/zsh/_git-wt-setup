@@ -7,7 +7,7 @@
 # `_git-<sub-command>`, so this file has to keep the name `_git-wt-setup`
 # and sit on your fpath.
 
-__git_ext_worktrees() {
+__git_wt_worktrees() {
   local -a worktrees
   # Every worktree of the current repo except the bare one, which has no
   # checkout to run a setup hook in.
@@ -22,7 +22,7 @@ __git_ext_worktrees() {
 
 _git-wt-setup() {
   # The single argument is optional: with none, the current worktree is used.
-  _arguments -S '1:worktree path:__git_ext_worktrees'
+  _arguments -S '1:worktree path:__git_wt_worktrees'
 }
 
 _git-wt-setup "$@"

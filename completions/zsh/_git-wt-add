@@ -7,7 +7,7 @@
 # `_git-<sub-command>`, so this file has to keep the name `_git-wt-add`
 # and sit on your fpath.
 
-__git_ext_wt_add_branches() {
+__git_wt_add_branches() {
   local -a branches
   # Local branches, plus remote branches with the remote name stripped:
   # `git worktree add` resolves a bare `topic` to `origin/topic` itself.
@@ -22,7 +22,7 @@ __git_ext_wt_add_branches() {
 _git-wt-add() {
   _arguments -S \
     '1:worktree name:' \
-    '2:branch:__git_ext_wt_add_branches' \
+    '2:branch:__git_wt_add_branches' \
     '3:new branch:'
 }
 

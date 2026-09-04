@@ -6,7 +6,7 @@
 # ~/.config/fish/completions/ (which is only loaded when completing a command
 # of the same name).
 
-function __git_ext_worktree_names --description 'Worktree names of the current repo, excluding the bare one'
+function __git_wt_worktree_names --description 'Worktree names of the current repo, excluding the bare one'
     # `git wt-rm` takes a name, not a path, so report the last path
     # segment. The bare repo is skipped: it isn't a worktree to remove.
     command git worktree list --porcelain 2>/dev/null | awk '
@@ -17,7 +17,7 @@ function __git_ext_worktree_names --description 'Worktree names of the current r
     ' | sed 's|.*/||'
 end
 
-function __git_ext_wt_rm_at --argument-names want \
+function __git_wt_rm_at --argument-names want \
     --description 'Test whether the non-option argument being completed is at the given position'
     set -l tokens (commandline --current-process --tokenize --cut-at-cursor)
     set -l idx 0
@@ -47,7 +47,7 @@ end
 complete -c git-wt-rm -f
 complete -c git-wt-rm -s f -d 'Remove a locked worktree, or one with modified or untracked files'
 complete -c git-wt-rm -s h -d 'Print help and exit'
-complete -c git-wt-rm -n '__git_ext_wt_rm_at 1' \
-    -a '(__git_ext_worktree_names)' -d Worktree
-complete -c git -n '__git_ext_wt_rm_at 1' \
-    -a '(__git_ext_worktree_names)' -d Worktree
+complete -c git-wt-rm -n '__git_wt_rm_at 1' \
+    -a '(__git_wt_worktree_names)' -d Worktree
+complete -c git -n '__git_wt_rm_at 1' \
+    -a '(__git_wt_worktree_names)' -d Worktree

@@ -6,7 +6,7 @@
 # `git-<sub-command>` when that function isn't defined yet. Naming this file
 # `git-wt-setup` and defining `_git_wt_setup` satisfies both.
 
-__git_ext_worktrees ()
+__git_wt_worktrees ()
 {
 	# Prefer git's own wrapper, which honors `git -C <dir>` and `--git-dir`.
 	local g=git
@@ -40,7 +40,7 @@ _git_wt_setup ()
 
 	# [<worktree_path>]: only the one optional argument.
 	if ((COMP_CWORD - idx == 1)); then
-		COMPREPLY=($(compgen -W "$(__git_ext_worktrees)" -- "$cur"))
+		COMPREPLY=($(compgen -W "$(__git_wt_worktrees)" -- "$cur"))
 	else
 		COMPREPLY=()
 	fi

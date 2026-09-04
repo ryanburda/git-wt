@@ -6,7 +6,7 @@
 # `git-<sub-command>` when that function isn't defined yet. Naming this file
 # `git-wt-add` and defining `_git_wt_add` satisfies both.
 
-__git_ext_wt_add_branches ()
+__git_wt_add_branches ()
 {
 	# Prefer git's own wrapper, which honors `git -C <dir>` and `--git-dir`.
 	local g=git
@@ -38,7 +38,7 @@ _git_wt_add ()
 
 	# <worktree_name> <branch> [<new_branch>]: only <branch> is completable.
 	if ((COMP_CWORD - idx == 2)); then
-		COMPREPLY=($(compgen -W "$(__git_ext_wt_add_branches)" -- "$cur"))
+		COMPREPLY=($(compgen -W "$(__git_wt_add_branches)" -- "$cur"))
 	else
 		COMPREPLY=()
 	fi

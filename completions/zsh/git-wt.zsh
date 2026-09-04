@@ -1,8 +1,8 @@
-# zsh setup for git-ext, meant to be sourced from ~/.zshrc.
+# zsh setup for git-wt, meant to be sourced from ~/.zshrc.
 #
 # Symlink this into a directory your .zshrc sources, e.g.
 #
-#   ln -s <git-ext>/completions/zsh/git-ext.zsh ~/.zsh/zshrc_extensions/git-ext.zsh
+#   ln -s <git-wt>/completions/zsh/git-wt.zsh ~/.zsh/zshrc_extensions/git-wt.zsh
 #
 # Some loaders only source executable files, so this file keeps its +x bit.
 #
@@ -11,9 +11,9 @@
 # is autoloaded directly: zsh's _git dispatches `git wt-add` to a
 # function named `_git-wt-add`, and compdef binds the standalone command.
 
-_git_ext_root=${0:A:h:h:h}
+_git_wt_root=${0:A:h:h:h}
 
-fpath=($_git_ext_root/completions/zsh $fpath)
+fpath=($_git_wt_root/completions/zsh $fpath)
 autoload -Uz _git-wt-add
 compdef _git-wt-add git-wt-add
 autoload -Uz _git-wt-rm
@@ -28,4 +28,4 @@ zstyle ':completion:*:*:git:*' user-commands \
     wt-rm:'remove a worktree from that layout' \
     wt-setup:'run the project .wt-setup/setup hook in a worktree'
 
-unset _git_ext_root
+unset _git_wt_root

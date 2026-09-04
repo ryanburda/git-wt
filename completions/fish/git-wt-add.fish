@@ -6,7 +6,7 @@
 # ~/.config/fish/completions/ (which is only loaded when completing a command
 # of the same name).
 
-function __git_ext_wt_add_branches --description 'Branches accepted by git wt-add'
+function __git_wt_add_branches --description 'Branches accepted by git wt-add'
     # Local branches, plus remote branches with the remote name stripped:
     # `git worktree add` resolves a bare `topic` to `origin/topic` itself.
     begin
@@ -15,7 +15,7 @@ function __git_ext_wt_add_branches --description 'Branches accepted by git wt-ad
     end 2>/dev/null | string match --invert HEAD | sort -u
 end
 
-function __git_ext_wt_add_at --argument-names want \
+function __git_wt_add_at --argument-names want \
     --description 'Test whether the argument being completed is at the given position'
     set -l tokens (commandline --current-process --tokenize --cut-at-cursor)
     set -l idx 0
@@ -36,7 +36,7 @@ end
 
 # <worktree_name> <branch> [<new_branch>]: only <branch> is completable.
 complete -c git-wt-add -f
-complete -c git-wt-add -n '__git_ext_wt_add_at 2' \
-    -a '(__git_ext_wt_add_branches)' -d Branch
-complete -c git -n '__git_ext_wt_add_at 2' \
-    -a '(__git_ext_wt_add_branches)' -d Branch
+complete -c git-wt-add -n '__git_wt_add_at 2' \
+    -a '(__git_wt_add_branches)' -d Branch
+complete -c git -n '__git_wt_add_at 2' \
+    -a '(__git_wt_add_branches)' -d Branch

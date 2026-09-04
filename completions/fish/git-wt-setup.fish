@@ -6,7 +6,7 @@
 # ~/.config/fish/completions/ (which is only loaded when completing a command
 # of the same name).
 
-function __git_ext_worktrees --description 'Worktrees of the current repo, excluding the bare one'
+function __git_wt_worktrees --description 'Worktrees of the current repo, excluding the bare one'
     command git worktree list --porcelain 2>/dev/null | awk '
         /^worktree /{wt = substr($0, 10); bare = 0}
         /^bare$/{bare = 1}
@@ -15,7 +15,7 @@ function __git_ext_worktrees --description 'Worktrees of the current repo, exclu
     '
 end
 
-function __git_ext_wt_setup_at --argument-names want \
+function __git_wt_setup_at --argument-names want \
     --description 'Test whether the argument being completed is at the given position'
     set -l tokens (commandline --current-process --tokenize --cut-at-cursor)
     set -l idx 0
@@ -36,7 +36,7 @@ end
 
 # [<worktree_path>]: the one optional argument.
 complete -c git-wt-setup -f
-complete -c git-wt-setup -n '__git_ext_wt_setup_at 1' \
-    -a '(__git_ext_worktrees)' -d Worktree
-complete -c git -n '__git_ext_wt_setup_at 1' \
-    -a '(__git_ext_worktrees)' -d Worktree
+complete -c git-wt-setup -n '__git_wt_setup_at 1' \
+    -a '(__git_wt_worktrees)' -d Worktree
+complete -c git -n '__git_wt_setup_at 1' \
+    -a '(__git_wt_worktrees)' -d Worktree

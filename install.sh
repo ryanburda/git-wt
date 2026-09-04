@@ -1,18 +1,18 @@
 #!/bin/sh
-# Install git-ext: symlink the git external commands into a directory on PATH
+# Install git-wt: symlink the git external commands into a directory on PATH
 # so that git picks them up as subcommands.
 #
-#   curl -fsSL https://raw.githubusercontent.com/ryanburda/git-ext/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/ryanburda/git-wt/main/install.sh | sh
 #
 # Environment overrides:
-#   GIT_EXT_HOME  where the repo is cloned  (default: ~/.local/share/git-ext)
-#   BIN_DIR       where symlinks are placed (default: ~/.local/bin)
-#   GIT_EXT_REPO  clone URL                 (default: the GitHub HTTPS URL)
+#   GIT_WT_HOME  where the repo is cloned  (default: ~/.local/share/git-wt)
+#   BIN_DIR      where symlinks are placed (default: ~/.local/bin)
+#   GIT_WT_REPO  clone URL                 (default: the GitHub HTTPS URL)
 
 set -eu
 
-REPO_URL=${GIT_EXT_REPO:-https://github.com/ryanburda/git-ext.git}
-GIT_EXT_HOME=${GIT_EXT_HOME:-"${XDG_DATA_HOME:-$HOME/.local/share}/git-ext"}
+REPO_URL=${GIT_WT_REPO:-https://github.com/ryanburda/git-wt.git}
+GIT_WT_HOME=${GIT_WT_HOME:-"${XDG_DATA_HOME:-$HOME/.local/share}/git-wt"}
 BIN_DIR=${BIN_DIR:-"$HOME/.local/bin"}
 
 COMMANDS="git-wt-add git-wt-rm git-wt-setup git-seed"
@@ -29,22 +29,22 @@ if ! command -v zsh > /dev/null 2>&1; then
 fi
 
 # Fetch (or update) the source checkout that the symlinks point at.
-if [ -d "$GIT_EXT_HOME/.git" ]; then
-    echo "Updating existing checkout at $GIT_EXT_HOME"
-    git -C "$GIT_EXT_HOME" fetch --quiet origin
-    git -C "$GIT_EXT_HOME" reset --quiet --hard origin/HEAD
-elif [ -e "$GIT_EXT_HOME" ]; then
-    die "$GIT_EXT_HOME exists but is not a git checkout; move it aside and retry"
+if [ -d "$GIT_WT_HOME/.git" ]; then
+    echo "Updating existing checkout at $GIT_WT_HOME"
+    git -C "$GIT_WT_HOME" fetch --quiet origin
+    git -C "$GIT_WT_HOME" reset --quiet --hard origin/HEAD
+elif [ -e "$GIT_WT_HOME" ]; then
+    die "$GIT_WT_HOME exists but is not a git checkout; move it aside and retry"
 else
-    echo "Cloning $REPO_URL into $GIT_EXT_HOME"
-    mkdir -p "$(dirname "$GIT_EXT_HOME")"
-    git clone --quiet "$REPO_URL" "$GIT_EXT_HOME"
+    echo "Cloning $REPO_URL into $GIT_WT_HOME"
+    mkdir -p "$(dirname "$GIT_WT_HOME")"
+    git clone --quiet "$REPO_URL" "$GIT_WT_HOME"
 fi
 
 mkdir -p "$BIN_DIR"
 
 for cmd in $COMMANDS; do
-    src="$GIT_EXT_HOME/$cmd"
+    src="$GIT_WT_HOME/$cmd"
     dest="$BIN_DIR/$cmd"
 
     [ -f "$src" ] || die "expected $src to exist"

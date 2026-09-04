@@ -6,7 +6,7 @@
 # `git-<sub-command>` when that function isn't defined yet. Naming this file
 # `git-wt-rm` and defining `_git_wt_rm` satisfies both.
 
-__git_ext_worktree_names ()
+__git_wt_worktree_names ()
 {
 	# Prefer git's own wrapper, which honors `git -C <dir>` and `--git-dir`.
 	local g=git
@@ -50,7 +50,7 @@ _git_wt_rm ()
 	done
 
 	if ((args == 0)); then
-		COMPREPLY=($(compgen -W "$(__git_ext_worktree_names)" -- "$cur"))
+		COMPREPLY=($(compgen -W "$(__git_wt_worktree_names)" -- "$cur"))
 	else
 		COMPREPLY=()
 	fi

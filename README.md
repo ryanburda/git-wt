@@ -1,4 +1,4 @@
-# git-ext
+# git-wt
 
 *Git external commands for a worktree-first workflow.*
 
@@ -45,10 +45,10 @@ project/
 ## Install
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/ryanburda/git-ext/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/ryanburda/git-wt/main/install.sh | sh
 ```
 
-The script clones this repo to `~/.local/share/git-ext` and symlinks the
+The script clones this repo to `~/.local/share/git-wt` and symlinks the
 commands into `~/.local/bin`. Re-running it updates the checkout in place.
 
 The commands are zsh scripts, so zsh must be installed. The installer itself
@@ -70,12 +70,12 @@ Overrides:
 
 | Variable | Default |
 | --- | --- |
-| `GIT_EXT_HOME` | `~/.local/share/git-ext` (or `$XDG_DATA_HOME/git-ext`) |
+| `GIT_WT_HOME` | `~/.local/share/git-wt` (or `$XDG_DATA_HOME/git-wt`) |
 | `BIN_DIR` | `~/.local/bin` |
-| `GIT_EXT_REPO` | `https://github.com/ryanburda/git-ext.git` |
+| `GIT_WT_REPO` | `https://github.com/ryanburda/git-wt.git` |
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/ryanburda/git-ext/main/install.sh | BIN_DIR=~/bin sh
+curl -fsSL https://raw.githubusercontent.com/ryanburda/git-wt/main/install.sh | BIN_DIR=~/bin sh
 ```
 
 ## Uninstall
@@ -85,7 +85,7 @@ section below:
 
 ```sh
 rm ~/.local/bin/git-{seed,wt-add,wt-rm,wt-setup}
-rm -rf ~/.local/share/git-ext
+rm -rf ~/.local/share/git-wt
 ```
 
 ## Completions
@@ -99,16 +99,16 @@ $ git wt-add wt <TAB>
 feature/login  local-only  main  other  release-2.0
 ```
 
-The installer leaves these files at `~/.local/share/git-ext/completions/`;
+The installer leaves these files at `~/.local/share/git-wt/completions/`;
 each shell needs one line to pick them up.
 
 <details>
 <summary>zsh</summary>
 
-Source `git-ext.zsh` from `~/.zshrc`:
+Source `git-wt.zsh` from `~/.zshrc`:
 
 ```zsh
-source ~/.local/share/git-ext/completions/zsh/git-ext.zsh
+source ~/.local/share/git-wt/completions/zsh/git-wt.zsh
 ```
 
 This works even after `compinit` has run: instead of relying on `compinit` to
@@ -119,7 +119,7 @@ If your `.zshrc` sources a directory of extension scripts, symlink it in
 instead:
 
 ```zsh
-ln -s ~/.local/share/git-ext/completions/zsh/git-ext.zsh ~/.zsh/zshrc_extensions/git-ext.zsh
+ln -s ~/.local/share/git-wt/completions/zsh/git-wt.zsh ~/.zsh/zshrc_extensions/git-wt.zsh
 ```
 
 </details>
@@ -133,7 +133,7 @@ they are loaded on demand:
 ```sh
 mkdir -p ~/.local/share/bash-completion/completions
 for c in git-wt-add git-wt-rm git-wt-setup; do
-    ln -sfn ~/.local/share/git-ext/completions/bash/$c \
+    ln -sfn ~/.local/share/git-wt/completions/bash/$c \
             ~/.local/share/bash-completion/completions/$c
 done
 ```
@@ -142,9 +142,9 @@ Without bash-completion, source them from `~/.bashrc` after git's own
 completion:
 
 ```sh
-source ~/.local/share/git-ext/completions/bash/git-wt-add
-source ~/.local/share/git-ext/completions/bash/git-wt-rm
-source ~/.local/share/git-ext/completions/bash/git-wt-setup
+source ~/.local/share/git-wt/completions/bash/git-wt-add
+source ~/.local/share/git-wt/completions/bash/git-wt-rm
+source ~/.local/share/git-wt/completions/bash/git-wt-setup
 ```
 
 </details>
@@ -158,7 +158,7 @@ of the same name):
 
 ```fish
 for c in git-wt-add git-wt-rm git-wt-setup
-    ln -sfn ~/.local/share/git-ext/completions/fish/$c.fish \
+    ln -sfn ~/.local/share/git-wt/completions/fish/$c.fish \
             ~/.config/fish/conf.d/$c.fish
 end
 ```

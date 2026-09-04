@@ -7,7 +7,7 @@
 # `_git-<sub-command>`, so this file has to keep the name `_git-wt-rm`
 # and sit on your fpath.
 
-__git_ext_worktree_names() {
+__git_wt_worktree_names() {
   local -a names
   # `git wt-rm` takes a name, not a path, so report the last path
   # segment. The bare repo is skipped: it isn't a worktree to remove.
@@ -24,7 +24,7 @@ _git-wt-rm() {
   _arguments -S \
     '-f[remove a locked worktree, or one with modified or untracked files]' \
     '-h[print help and exit]' \
-    '1:worktree name:__git_ext_worktree_names'
+    '1:worktree name:__git_wt_worktree_names'
 }
 
 _git-wt-rm "$@"
