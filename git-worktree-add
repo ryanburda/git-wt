@@ -6,11 +6,11 @@ usage() {
 Usage:
   git worktree-add <worktree_name> <branch> [<new_branch>]
 
-Works with `git clone-bare` to enforce a repo
+Works with `git seed` to enforce a repo
 folder structure that accommodates worktrees:
 
   $root_path/
-  ├── .git/              <- bare repo (created by clone-bare or seed)
+  ├── .git/              <- bare repo (created by seed)
   ├── feature-a/         <- worktree (created by worktree-add)
   └── feature-b/         <- worktree (created by worktree-add)
 

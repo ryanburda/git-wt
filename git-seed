@@ -4,7 +4,7 @@ set -e
 usage() {
     cat >&2 <<'EOF'
 Usage:
-  git seed [-b <branch>] [-w <worktree_name>] [-n] <repo_url> [<root_path>]
+  git seed [-b <branch>] [-w <worktree_name>] [-u] <repo_url> [<root_path>]
 
 The worktree-first version of `git clone`: clones a repo
 and creates its first worktree, in one step.
@@ -18,9 +18,10 @@ Arguments:
                 remote's HEAD points at, so main and master both just work.
   -w <name>     Worktree directory name, created under <root_path>.
                 Default: base.
-  -n            Don't lock the worktree. Locked is the default.
+  -u            Leave the worktree unlocked. Locked is the default.
   -h            Print this help and exit.
-  <repo_url>    Any URL `git clone` accepts; handed to `git clone-bare`.
+  <repo_url>    Any URL `git clone` accepts; passed straight through to
+                `git clone --bare`.
   <root_path>   Optional. The project root that ends up holding .git and the
                 worktree beside it. Defaults to the project name derived from
                 <repo_url> under the current directory, matching `git clone`.
@@ -41,11 +42,11 @@ BRANCH=""
 WORKTREE_NAME="base"
 LOCK=1
 
-while getopts ":b:w:nh" opt; do
+while getopts ":b:w:uh" opt; do
     case $opt in
         b) BRANCH=$OPTARG ;;
         w) WORKTREE_NAME=$OPTARG ;;
-        n) LOCK=0 ;;
+        u) LOCK=0 ;;
         h) usage; exit 0 ;;
         :) echo "Error: -$OPTARG requires an argument" >&2; usage; exit 129 ;;
         \?) echo "Error: unknown option -$OPTARG" >&2; usage; exit 129 ;;
@@ -63,12 +64,42 @@ REPO_URL=$1
 if [[ -n "$2" ]]; then
     ROOT_PATH=$2
 else
-    # Same default as git clone-bare: the project name under the current dir.
+    # Derive project name from URL, matching git clone behavior:
+    # strip the .git suffix and take the basename.
     ROOT_PATH="$(pwd)/$(basename "${REPO_URL}" .git)"
 fi
 
-# >&2 so only the worktree path reaches our stdout.
-git clone-bare "$REPO_URL" "$ROOT_PATH" >&2
+BARE_DIR="${ROOT_PATH}/.git"
+
+if [[ -d "$BARE_DIR" ]]; then
+    echo "Bare repo already exists at ${BARE_DIR}, skipping clone." >&2
+else
+    mkdir -p "${ROOT_PATH}"
+    # >&2 so only the worktree path reaches our stdout.
+    git clone --bare "$REPO_URL" "$BARE_DIR" >&2
+    # In a normal clone, git separates refs into:
+    #   - refs/heads/* (local branches)
+    #   - refs/remotes/origin/* (remote tracking branches)
+    #
+    # A bare repo was designed to be a server-side mirror - the central repo that
+    # people push to and pull from. There's no local/remote distinction because every
+    # branch *is* the authoritative copy. So `git clone --bare` maps everything
+    # into refs/heads/* with fetch = +refs/heads/*:refs/heads/*.
+    #
+    # The worktree-based workflow repurposes bare repos for local development,
+    # so we need the local/remote separation back. Fix the fetch refspec to
+    # use the standard refs/remotes/origin/* namespace.
+    git -C "$BARE_DIR" config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
+
+    # bare clone creates local branches for every remote branch.
+    # Remove all local branches except the default, then re-fetch into
+    # refs/remotes/origin/* using the corrected refspec.
+    DEFAULT_BRANCH=$(git -C "$BARE_DIR" symbolic-ref --short HEAD)
+    git -C "$BARE_DIR" for-each-ref --format='%(refname)' refs/heads/ \
+        | grep -v "^refs/heads/${DEFAULT_BRANCH}$" \
+        | while read -r ref; do git -C "$BARE_DIR" update-ref -d "$ref"; done
+    git -C "$BARE_DIR" fetch origin >&2
+fi
 
 if [[ -z "$BRANCH" ]]; then
     # The bare clone's HEAD points at the remote's default branch, so this

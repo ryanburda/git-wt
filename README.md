@@ -38,7 +38,6 @@ project/
 | Command | Purpose |
 | --- | --- |
 | `git seed` | Clone a repo and create its first worktree in one step |
-| `git clone-bare` | Clone a repo as a bare repo laid out for worktrees |
 | `git worktree-add` | Add a worktree in that layout |
 | `git worktree-remove` | Remove a worktree from that layout |
 | `git worktree-setup` | Run a project's `.worktree/setup` hook in a worktree |
@@ -85,7 +84,7 @@ Delete the symlinks and the checkout, plus any completion links from the
 section below:
 
 ```sh
-rm ~/.local/bin/git-{clone-bare,worktree-add,worktree-remove,worktree-setup,seed}
+rm ~/.local/bin/git-{seed,worktree-add,worktree-remove,worktree-setup}
 rm -rf ~/.local/share/git-ext
 ```
 
@@ -174,14 +173,14 @@ A worktree-first `git clone`: clones a bare repo and creates its first
 worktree in one step.
 
 ```
-git seed [-b <branch>] [-w <worktree_name>] [-n] <repo_url> [<root_path>]
+git seed [-b <branch>] [-w <worktree_name>] [-u] <repo_url> [<root_path>]
 ```
 
 | Flag | Default | Meaning |
 | --- | --- | --- |
 | `-b <branch>` | the remote's default branch | branch to check out |
 | `-w <name>` | `base` | worktree directory name |
-| `-n` | lock | don't lock the worktree |
+| `-u` | lock | leave the worktree unlocked |
 
 ```sh
 git seed git@github.com:user/project_a.git
@@ -206,18 +205,11 @@ The project's `.worktree/setup` hook is *not* run — that is
 [`git worktree-setup`](#git-worktree-setup), kept separate so that slow setup
 work stays opt-in.
 
-### `git clone-bare`
-
-```
-git clone-bare <repo_url> [<root_path>]
-```
-
-Clones into `<root_path>/.git` as a bare repo. With no `<root_path>`, the
-project name is derived from the URL, matching `git clone`.
+#### The bare repo
 
 A plain `git clone --bare` is built to be a server-side mirror: it maps every
-upstream branch into `refs/heads/*` and has no local/remote distinction. This
-command restores the layout of a normal clone:
+upstream branch into `refs/heads/*` and has no local/remote distinction. Before
+adding the worktree, `git seed` restores the ref layout of a normal clone:
 
 - sets `remote.origin.fetch` to the standard `+refs/heads/*:refs/remotes/origin/*`
 - deletes every local branch except the default one

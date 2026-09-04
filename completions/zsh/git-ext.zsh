@@ -23,7 +23,6 @@ compdef _git-worktree-setup git-worktree-setup
 
 # Offer the commands, with descriptions, when completing `git <TAB>`.
 zstyle ':completion:*:*:git:*' user-commands \
-    clone-bare:'clone a repo as a bare repo laid out for worktrees' \
     seed:'clone a repo and grow its first worktree in one step' \
     worktree-add:'add a worktree in that layout' \
     worktree-remove:'remove a worktree from that layout' \

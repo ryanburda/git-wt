@@ -15,7 +15,7 @@ REPO_URL=${GIT_EXT_REPO:-https://github.com/ryanburda/git-ext.git}
 GIT_EXT_HOME=${GIT_EXT_HOME:-"${XDG_DATA_HOME:-$HOME/.local/share}/git-ext"}
 BIN_DIR=${BIN_DIR:-"$HOME/.local/bin"}
 
-COMMANDS="git-clone-bare git-worktree-add git-worktree-remove git-worktree-setup git-seed"
+COMMANDS="git-worktree-add git-worktree-remove git-worktree-setup git-seed"
 
 die() {
     echo "install.sh: $*" >&2
@@ -71,4 +71,4 @@ case ":$PATH:" in
 esac
 
 echo
-echo "Done. Run 'git clone-bare' with no arguments to see its usage."
+echo "Done. Run 'git seed' with no arguments to see its usage."

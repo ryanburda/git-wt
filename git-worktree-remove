@@ -10,7 +10,7 @@ The counterpart to `git worktree-add`. Removes a worktree from the repo
 folder structure those commands enforce:
 
   $root_path/
-  ├── .git/              <- bare repo (created by clone-bare or seed)
+  ├── .git/              <- bare repo (created by seed)
   ├── feature-a/         <- worktree (created by worktree-add)
   └── feature-b/         <- worktree (removed by worktree-remove)
 
