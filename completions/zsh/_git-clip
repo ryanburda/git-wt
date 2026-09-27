@@ -1,0 +1,51 @@
+#compdef git-clip
+#
+# zsh completion for `git clip` and for the standalone
+# `git-clip` command.
+#
+# zsh's _git dispatches an unknown sub-command to a function named
+# `_git-<sub-command>`, so this file has to keep the name `_git-clip`
+# and sit on your fpath.
+
+__git_wt_clip_worktree_names() {
+  local -a names
+  # Under -k, only worktrees that have a branch checked out: there is nothing to
+  # clip off one that already has a detached HEAD. Otherwise every worktree,
+  # since any of them can be removed. The bare repo is skipped: it isn't a
+  # worktree to clip. `git clip` takes a name, not a path, so report the last
+  # path segment.
+  local want=''
+  (( ${words[(I)-*k*]} )) && want=1
+
+  names=(${(f)"$(git worktree list --porcelain 2>/dev/null | awk -v need_branch="$want" '
+    /^worktree /{wt = substr($0, 10); branch = 0; bare = 0}
+    /^bare$/{bare = 1}
+    /^branch /{branch = 1}
+    /^$/{if (wt != "" && !bare && (need_branch == "" || branch)) print wt; wt = ""}
+    END{if (wt != "" && !bare && (need_branch == "" || branch)) print wt}
+  ' | sed 's|.*/||')"})
+  _describe -t worktrees worktree names
+}
+
+__git_wt_clip_commit_ish() {
+  local -a refs
+  # Anywhere -b can park a detached HEAD: local branches, remote branches with
+  # the remote name stripped, and tags.
+  refs=(
+    ${(f)"$(git for-each-ref --format='%(refname:short)' refs/heads refs/tags 2>/dev/null)"}
+    ${(f)"$(git for-each-ref --format='%(refname:strip=3)' refs/remotes 2>/dev/null)"}
+  )
+  refs=(${(u)refs:#(HEAD|)})
+  _describe -t commits commit-ish refs
+}
+
+_git-clip() {
+  _arguments -S \
+    '-k[keep the worktree: clip off its branch, leaving a detached HEAD]' \
+    '-f[clip a locked worktree, or one with modified or untracked files]' \
+    '-b[with -k, where to leave the detached HEAD (default: the project default branch)]:commit-ish:__git_wt_clip_commit_ish' \
+    '-h[print help and exit]' \
+    '1:worktree name:__git_wt_clip_worktree_names'
+}
+
+_git-clip "$@"

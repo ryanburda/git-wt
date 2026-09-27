@@ -9,12 +9,12 @@ with every worktree as a direct sibling.
 # `git seed` is a worktree-first `git clone`. Just pass it a URL.
 git seed git@github.com:user/project.git
 
-# `git wt-add` adds a worktree in the same layout.
+# `git bud` puts a branch in a worktree, growing one if it isn't there yet.
 #
 # worktree name      (optional) new branch created off existing
 #           |          |
 #           v          v
-git wt-add wt1 main feature
+git bud wt1 main feature
 #               ^
 #               |
 #         existing branch to check out
@@ -26,15 +26,27 @@ Those two commands produce:
 project/
 ├── .git/        <- bare repo  (created by `git seed`)
 ├── base/        <- worktree   (created by `git seed`)
-└── wt1/         <- worktree   (created by `git wt-add`)
+└── wt1/         <- worktree   (created by `git bud`)
 ```
 
 | Command | Purpose |
 | --- | --- |
-| `git seed` | Clone a repo and create its first worktree in one step |
-| `git wt-add` | Add a worktree in that layout |
-| `git wt-rm` | Remove a worktree from that layout |
+| `git seed` | Clone a repo and grow its first worktree in one step |
+| `git bud` | Put a branch in a worktree, growing the worktree if needed |
+| `git clip` | Clip a worktree off, or with `-k` clip off only its branch |
 | `git wt-setup` | Run a project's `.wt-setup/setup` hook in a worktree |
+
+`git clip -k` is how you put a worktree on ice without tearing it down. A
+worktree holds its branch hostage since a branch can only exist in one
+worktree at a time. `-k` clips off the branch instead of the worktree,
+leaving a detached HEAD, so the branch is free to check out elsewhere
+or delete while everything created by `git wt-setup` stays around.
+`git bud` buds a branch back on:
+
+```sh
+git clip -k wt1              # park it; its branch is free to delete
+git bud wt1 main feature     # months later, back to work in wt1
+```
 
 See the [design_decisions](design_decisions.md) doc for implementation
 specific details.
@@ -80,7 +92,7 @@ Delete the symlinks and the checkout, plus any completion links from the
 section below:
 
 ```sh
-rm ~/.local/bin/git-{seed,wt-add,wt-rm,wt-setup}
+rm ~/.local/bin/git-{seed,bud,clip,wt-setup}
 rm -rf ~/.local/share/git-wt
 ```
 
@@ -119,16 +131,16 @@ being told which. The worktree is locked, marking it as the project's
 The project's `.wt-setup/setup` hook is *not* run; that's
 [`git wt-setup`](#git-wt-setup).
 
-### `git wt-add`
+### `git bud`
 
 ```
-git wt-add <worktree_name> <branch>               # check out an existing branch
-git wt-add <worktree_name> <branch> <new_branch>  # create new_branch off branch
+git bud [-f] <worktree_name> <branch>               # check out an existing branch
+git bud [-f] <worktree_name> <branch> <new_branch>  # create new_branch off branch
 ```
 
 ```sh
-git wt-add wt1 main             # main checked out at <project_root>/wt1
-git wt-add wt1 main feature     # branch "feature" off main at <project_root>/wt1
+git bud wt1 main             # main checked out at <project_root>/wt1
+git bud wt1 main feature     # branch "feature" off main at <project_root>/wt1
 ```
 
 `<worktree_name>` is a name, not a path: it's joined onto the project root, so
@@ -136,20 +148,47 @@ you get the same worktree no matter where in the repo you run the command
 from. Afterwards the branch's upstream is set to `origin/<branch>` if that
 remote branch exists.
 
-Creating the worktree is all it does; preparing it is `git wt-setup`.
+A worktree that's already there is not created again — the branch is checked out
+in it where it stands. That's what makes [`git clip -k`](#git-clip) worth
+using: a parked worktree keeps its `node_modules`, its `.venv`, its `.env`, and
+budding a branch back on costs nothing.
 
-### `git wt-rm`
+```sh
+git clip -k wt1              # park wt1, freeing its branch
+git bud wt1 main feature     # months later, back to work in wt1
+```
+
+Nothing has to be parked first. Budding onto a worktree that's on a branch
+already is just a checkout, and budding the branch it's already on is a no-op
+that prints the path and exits 0 — so re-running the same command is safe.
+
+`-f` is only about an existing worktree: it checks out into one with modified or
+untracked files, discarding them. Without it, either is an error and nothing
+changes. A brand-new worktree has nothing to discard, so `-f` does nothing
+there.
+
+A branch checked out in *another* worktree is an error — git allows a branch in
+only one worktree at a time. That's the restriction `git clip -k` exists to
+work around; park the other worktree first.
+
+Growing the worktree is all this does; preparing it is `git wt-setup`. A
+worktree that was parked rather than removed was already prepared, so there's
+usually nothing left to run.
+
+### `git clip`
 
 ```
-git wt-rm [-f] <worktree_name>
+git clip [-f] <worktree_name>                       # clip the worktree off
+git clip -k [-f] [-b <commit-ish>] <worktree_name>  # clip off only its branch
 ```
 
 ```sh
-git wt-rm wt1        # remove <project_root>/wt1
-git wt-rm -f base    # remove the locked base worktree
+git clip wt1        # remove <project_root>/wt1
+git clip -f base    # remove the locked base worktree
+git clip -k wt1     # keep wt1, free its branch
 ```
 
-The counterpart to `git wt-add`, taking a name the same way. Only the worktree
+The counterpart to `git bud`, taking a name the same way. Only the worktree
 is removed; its branch is left alone.
 
 `-f` is required for a worktree that is locked or has modified or untracked
@@ -160,8 +199,56 @@ The project root is printed on stdout, which is where you want to be if you
 just removed the worktree you were standing in:
 
 ```sh
-cd "$(git wt-rm wt1)"
+cd "$(git clip wt1)"
 ```
+
+#### `-k`: keep the worktree, clip off its branch
+
+A branch can only be checked out in one worktree at a time, so a worktree
+sitting idle on a branch holds that branch hostage: you can't check it out
+elsewhere and you can't delete it. Removing the worktree frees the branch, but
+it also throws away that worktree's `node_modules`, its `.venv`, its `.env` —
+every slow thing `git wt-setup` did, which you then pay for again.
+
+`-k` clips off the branch instead of the worktree. It detaches HEAD, so the
+worktree keeps no branch checked out while the directory and everything in it
+stays exactly where it is:
+
+```sh
+git clip -k wt1       # wt1 keeps its files; its branch is free
+git branch -d feature    # ...so this now works
+git bud wt1 main feature
+```
+
+The detach point defaults to the project's default branch, read from the bare
+repo's `HEAD` so repos on `main` and repos on `master` both work without being
+told which. `-b` overrides it with any commit-ish, and only means anything
+alongside `-k`.
+
+Under `-k`, `-f` covers modified or untracked files and discards them; a lock is
+irrelevant, since nothing is being removed. Files a setup hook drops in don't
+count as long as they're excluded — see
+[design_decisions.md](design_decisions.md#keeping-files-next-to-the-hook).
+
+Two things differ from a removal, because the worktree survives. Stdout is the
+worktree's own path rather than the project root — there's no need to `cd` out
+of a directory that still exists. And a worktree that isn't there is an error
+rather than a no-op: there is nothing to keep. Clipping the branch off a
+worktree that already has a detached HEAD is a no-op that prints the path and
+exits 0.
+
+The branch that was clipped off is reported with its short SHA, which is what
+you need if you delete it and later want it back:
+
+```
+$ git clip -k wt1
+Worktree /home/you/code/project_a/wt1 kept; branch 'feature' (ff74ab3) is free.
+  delete it:   git branch -d feature
+  put it back: git bud wt1 feature
+```
+
+`git worktree list` is how you see which worktrees are parked; they show up as
+`(detached HEAD)`.
 
 ### `git wt-setup`
 
@@ -197,7 +284,7 @@ Every new worktree now gets its own `node_modules/` without you remembering to
 install anything:
 
 ```sh
-git wt-add wt1 main
+git bud wt1 main
 git -C wt1 wt-setup
 ```
 
@@ -212,12 +299,14 @@ them in. See [design_decisions.md](design_decisions.md#keeping-files-next-to-the
 
 ## Completions
 
-`completions/` holds shell completions: `git wt-add` completes the
-`<branch>` argument, and `git wt-rm` and `git wt-setup` complete the repo's
-worktrees.
+`completions/` holds zsh and bash completions: `git bud` completes the
+`<branch>` argument, and all three commands complete the repo's worktrees.
+`git clip -k` narrows its list to worktrees that still have a branch to clip
+off, and under zsh `git bud` groups the parked worktrees first, since those
+are the ones waiting for a branch.
 
 ```
-$ git wt-add wt <TAB>
+$ git bud wt <TAB>
 feature/login  local-only  main  other  release-2.0
 ```
 
@@ -254,7 +343,7 @@ they are loaded on demand:
 
 ```sh
 mkdir -p ~/.local/share/bash-completion/completions
-for c in git-wt-add git-wt-rm git-wt-setup; do
+for c in git-bud git-clip git-wt-setup; do
     ln -sfn ~/.local/share/git-wt/completions/bash/$c \
             ~/.local/share/bash-completion/completions/$c
 done
@@ -264,25 +353,9 @@ Without bash-completion, source them from `~/.bashrc` after git's own
 completion:
 
 ```sh
-source ~/.local/share/git-wt/completions/bash/git-wt-add
-source ~/.local/share/git-wt/completions/bash/git-wt-rm
+source ~/.local/share/git-wt/completions/bash/git-bud
+source ~/.local/share/git-wt/completions/bash/git-clip
 source ~/.local/share/git-wt/completions/bash/git-wt-setup
-```
-
-</details>
-
-<details>
-<summary>fish</summary>
-
-These files register completions for `git` itself, so they belong in
-`conf.d/`, not `completions/` (which fish only loads when completing a command
-of the same name):
-
-```fish
-for c in git-wt-add git-wt-rm git-wt-setup
-    ln -sfn ~/.local/share/git-wt/completions/fish/$c.fish \
-            ~/.config/fish/conf.d/$c.fish
-end
 ```
 
 </details>

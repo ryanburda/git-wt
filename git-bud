@@ -1,0 +1,211 @@
+#!/bin/zsh
+set -e
+
+usage() {
+    cat >&2 <<'EOF'
+Usage:
+  git bud [-f] <worktree_name> <branch>               # check out an existing branch
+  git bud [-f] <worktree_name> <branch> <new_branch>  # create new_branch off branch
+
+Put a branch in a worktree, growing the worktree first if it isn't there yet.
+
+Works with `git seed` to enforce a repo
+folder structure that accommodates worktrees:
+
+  $root_path/
+  ├── .git/              <- bare repo (created by seed)
+  ├── feature-a/         <- worktree (created by bud)
+  └── feature-b/         <- worktree (created by bud)
+
+The worktree is created as a sibling of the .git bare repo directory,
+regardless of where the command is run from within the repo.
+
+A worktree that is already there is not created again; the branch is checked
+out in it where it stands. That is the whole point of `git clip -k`, which
+leaves a worktree in place with no branch checked out: everything expensive
+inside it -- the node_modules, the .venv, the .env, every slow thing
+`git wt-setup` did -- survives, and budding a branch back on costs nothing.
+
+  git clip -k wt1              # park wt1, freeing its branch
+  git bud wt1 main feature     # months later, back to work in wt1
+
+Nothing has to be parked first. Budding onto a worktree that is on a branch
+already is just a checkout, and budding the branch it is already on is a no-op.
+
+Growing the worktree is all this does; preparing it is `git wt-setup`. A
+worktree that was parked rather than removed was already prepared, so there is
+usually nothing left to run.
+
+Arguments:
+  -f               Force. Checks out into an existing worktree that has
+                   modified or untracked files, discarding them. Without it,
+                   either one is an error and nothing is changed. Irrelevant
+                   when the worktree is being created, since a new worktree has
+                   nothing to discard.
+  -h               Print this help and exit.
+  <worktree_name>  A directory name, not a path. It is always joined onto the
+                   project root derived from the bare repo's location, never
+                   the current directory, so the same command from a nested
+                   subdirectory or another worktree lands in the same place.
+                   Names containing "/", and "." and "..", are rejected: every
+                   worktree is a direct child of the project root, which is what
+                   keeps git's internal worktree names unambiguous.
+  <branch>         With two arguments, the existing branch (or any commit-ish)
+                   to check out. With three, the start point for <new_branch>.
+  <new_branch>     Optional. When given, a branch by this name is created off
+                   <branch> and checked out in the worktree.
+
+Returns:
+  Prints the absolute path of the worktree on stdout. Budding the branch that is
+  already checked out there is a no-op that still prints the path and exits 0,
+  so re-running the same command is safe. Afterwards the branch's upstream is
+  set to origin/<branch> if that remote branch exists.
+
+  A branch checked out in another worktree is an error -- git allows a branch in
+  only one worktree at a time. That is the restriction `git clip -k` exists
+  to work around: park the other worktree first.
+
+Examples:
+  git bud wt1 main          # checkout main in $root_path/wt1
+  git bud wt1 main feature  # create branch "feature" off main in $root_path/wt1
+  git bud -f wt1 main       # discard wt1's local changes first
+EOF
+}
+
+FORCE=0
+
+while getopts ":fh" opt; do
+    case $opt in
+        f) FORCE=1 ;;
+        h) usage; exit 0 ;;
+        \?) echo "Error: unknown option -$OPTARG" >&2; usage; exit 129 ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+if [[ $# -lt 2 || $# -gt 3 ]]; then
+    usage
+    exit 129
+fi
+
+WORKTREE_NAME=$1
+BRANCH=$2
+NEW_BRANCH=$3
+
+# Shell completion on a directory hands you "wt1/". That names the same
+# worktree, so trim trailing slashes rather than rejecting them below.
+while [[ "$WORKTREE_NAME" == */ ]]; do
+    WORKTREE_NAME=${WORKTREE_NAME%/}
+done
+
+# <worktree_name> is joined onto the project root, so it has to be a single path
+# segment. A name containing "/" would nest the worktree, and git names a worktree
+# after the last segment of its path -- two nested worktrees ending in the same
+# segment collide and git silently disambiguates them as "wt", "wt1", leaving the
+# short name ambiguous. ".." would place the worktree outside the project entirely,
+# and ".git" is the bare repo itself.
+case "$WORKTREE_NAME" in
+    */*)
+        echo "Error: <worktree_name> must be a directory name, not a path: '${WORKTREE_NAME}'" >&2
+        exit 128
+        ;;
+    ""|"."|".."|".git")
+        echo "Error: invalid <worktree_name>: '${WORKTREE_NAME}'" >&2
+        exit 128
+        ;;
+esac
+
+if ! git rev-parse --git-dir > /dev/null 2>&1; then
+    echo "Error: not inside a git repository" >&2
+    exit 128
+fi
+
+BARE_DIR=$(cd "$(git rev-parse --git-common-dir)" && pwd)
+PROJECT_ROOT="${BARE_DIR%/.git}"
+WORKTREE_PATH="${PROJECT_ROOT}/${WORKTREE_NAME}"
+
+# The branch that ends up checked out: <new_branch> when creating one,
+# otherwise <branch> itself.
+TARGET_BRANCH=${NEW_BRANCH:-$BRANCH}
+
+# The porcelain listing is the authority on what is a worktree of this repo:
+# a directory sitting at that name proves nothing either way.
+if git worktree list --porcelain | grep -qFx "worktree ${WORKTREE_PATH}"; then
+    # The worktree is already there, so this is a checkout rather than an add.
+    # Nothing inside it is touched beyond the checkout itself, which is what
+    # makes parking a worktree with `git clip -k` worth doing.
+
+    # Already on the branch asked for is the normal case for a setup script that
+    # runs on every bootstrap, not an error: report it, print the path, and exit
+    # 0 exactly as a real checkout would. With three arguments this only matches
+    # when <new_branch> is already checked out here, which `git switch -c` would
+    # refuse anyway.
+    CURRENT_BRANCH=$(git -C "$WORKTREE_PATH" branch --show-current)
+    if [[ -n "$CURRENT_BRANCH" && "$CURRENT_BRANCH" == "$TARGET_BRANCH" ]]; then
+        echo "Worktree at ${WORKTREE_PATH} is already on '${TARGET_BRANCH}', skipping." >&2
+        echo "$WORKTREE_PATH"
+        exit 0
+    fi
+
+    # Refuse a dirty worktree without -f, the same as `git clip`.
+    # `status --porcelain` counts staged, modified, and untracked-but-not-ignored
+    # files, so the files a setup hook drops in stay out of it as long as they
+    # are excluded -- see design_decisions.md on .git/info/exclude.
+    if [[ -n "$(git -C "$WORKTREE_PATH" status --porcelain)" ]]; then
+        if (( ! FORCE )); then
+            echo "Error: ${WORKTREE_PATH} has modified or untracked files" >&2
+            echo "Commit or clean them, or use -f to discard them." >&2
+            exit 128
+        fi
+        echo "Discarding modified and untracked files in ${WORKTREE_PATH}." >&2
+        git -C "$WORKTREE_PATH" clean -fd >&2
+    fi
+
+    # A detached HEAD is reachable only through this worktree's HEAD, so any
+    # commit made while the worktree was parked becomes unreferenced the moment
+    # we switch away. Print the SHA first; that is all it takes to get back.
+    if [[ -z "$CURRENT_BRANCH" ]]; then
+        PREV_SHA=$(git -C "$WORKTREE_PATH" rev-parse --short HEAD 2>/dev/null || true)
+        [[ -n "$PREV_SHA" ]] && echo "Leaving parked worktree ${WORKTREE_PATH}, detached at ${PREV_SHA}." >&2
+    fi
+
+    # `git switch` is what gives the useful error when the branch is checked out
+    # in another worktree -- the restriction `git clip -k` exists to work
+    # around -- so let it report that rather than pre-empting it with a worse
+    # message. --discard-changes is the -f half that covers tracked files; the
+    # untracked ones were cleaned above.
+    SWITCH_ARGS=()
+    (( FORCE )) && SWITCH_ARGS+=(--discard-changes)
+
+    if [[ -n "$NEW_BRANCH" ]]; then
+        git -C "$WORKTREE_PATH" switch "${SWITCH_ARGS[@]}" -c "$NEW_BRANCH" "$BRANCH" >&2
+    else
+        git -C "$WORKTREE_PATH" switch "${SWITCH_ARGS[@]}" "$BRANCH" >&2
+    fi
+else
+    # An unrelated directory that happens to sit at that name is a genuine name
+    # collision: it is not a worktree to check out into, and not ours to replace.
+    if [[ -e "$WORKTREE_PATH" ]]; then
+        echo "Error: ${WORKTREE_PATH} already exists and is not a worktree of this repo" >&2
+        exit 128
+    fi
+
+    if [[ -n "$NEW_BRANCH" ]]; then
+        git worktree add -b "$NEW_BRANCH" "$WORKTREE_PATH" "$BRANCH" >&2
+    else
+        git worktree add "$WORKTREE_PATH" "$BRANCH" >&2
+    fi
+fi
+
+# Set upstream tracking branch if not already set. This runs for a worktree that
+# was just created and for one that was checked out in place: either way the
+# branch is newly in a worktree and may never have had an upstream.
+WT_BRANCH=$(git -C "$WORKTREE_PATH" branch --show-current)
+if [[ -n "$WT_BRANCH" ]] && ! git -C "$WORKTREE_PATH" config "branch.${WT_BRANCH}.remote" > /dev/null 2>&1; then
+    REMOTE_REF="refs/remotes/origin/${WT_BRANCH}"
+    if git -C "$WORKTREE_PATH" show-ref --verify --quiet "$REMOTE_REF"; then
+        git -C "$WORKTREE_PATH" branch --set-upstream-to="origin/${WT_BRANCH}" >&2
+    fi
+fi
+
+echo "$WORKTREE_PATH"

@@ -1,0 +1,303 @@
+#!/bin/zsh
+set -e
+
+usage() {
+    cat >&2 <<'EOF'
+Usage:
+  git clip [-f] <worktree_name>                       # clip the worktree off
+  git clip -k [-f] [-b <commit-ish>] <worktree_name>  # clip off only its branch
+
+The counterpart to `git bud`. Clips a worktree out of the repo
+folder structure those commands enforce:
+
+  $root_path/
+  ├── .git/              <- bare repo (created by seed)
+  ├── feature-a/         <- worktree (created by bud)
+  └── feature-b/         <- worktree (clipped by clip)
+
+The worktree is looked up as a sibling of the .git bare repo directory,
+regardless of where the command is run from within the repo.
+
+Only the worktree is removed. The branch it had checked out is left alone,
+the same way `git bud` leaves branches to `git branch`.
+
+With -k, nothing is removed:
+  A branch can only be checked out in one worktree at a time, so a worktree
+  sitting idle on a branch holds that branch hostage -- you cannot check it out
+  elsewhere and you cannot delete it. Removing the worktree frees the branch,
+  but it also throws away the worktree's node_modules, its .venv, its .env --
+  every slow thing `git wt-setup` did, which you then pay for again.
+
+  -k clips off the branch instead of the worktree. It detaches HEAD, so the
+  worktree keeps no branch checked out while the directory and everything in it
+  stays exactly where it is. The branch is then free to check out elsewhere or
+  delete, and `git bud` buds one back on when you want the worktree again.
+
+    git clip -k wt1       # wt1 keeps its files; its branch is free
+    git branch -d feature    # ...so this now works
+    git bud wt1 main feature
+
+  `git worktree list` is how you see which worktrees are parked this way; they
+  show up as "(detached HEAD)".
+
+Arguments:
+  -k               Keep the worktree. Clips off its branch rather than the
+                   worktree itself, leaving a detached HEAD.
+  -f               Force. Without -k, removes a worktree that is locked, or that
+                   has modified or untracked files. With -k, detaches a worktree
+                   that has modified or untracked files, discarding them; a lock
+                   is irrelevant, since nothing is being removed. Without -f,
+                   any of those is an error and nothing is changed. The `base`
+                   worktree is locked by `git seed`, so removing it takes -f on
+                   purpose.
+  -b <commit-ish>  Only with -k: where to leave the detached HEAD. Defaults to
+                   the project's default branch, read from the bare repo's HEAD,
+                   so repos on main and repos on master both work without being
+                   told which.
+  -h               Print this help and exit.
+  <worktree_name>  A directory name, not a path. It is always joined onto the
+                   project root derived from the bare repo's location, never
+                   the current directory, so the same command from a nested
+                   subdirectory or another worktree clips the same worktree.
+                   Names containing "/", and "." and "..", are rejected: only
+                   direct children of the project root are worktrees this
+                   command knows how to clip. A trailing "/" is ignored, so
+                   a name completed as a directory works.
+
+Returns:
+  Prints the path you want to be standing in afterwards.
+
+  Without -k that is the project root, since the worktree you removed may be
+  the one you were in:
+
+    cd "$(git clip wt1)"
+
+  Clipping a worktree that isn't there is a no-op that still prints the root
+  and exits 0, so this is safe to re-run. A path that exists but is not a
+  worktree of this repo is never deleted; it is an error.
+
+  With -k the worktree survives, so its own path is printed instead, and a
+  worktree that isn't there is an error rather than a no-op: there is nothing
+  to keep. Clipping the branch off a worktree that already has a detached HEAD
+  is a no-op that prints the path and exits 0.
+
+  With -k the branch that was clipped off is reported on stderr with its short
+  SHA, which is what you need if you delete the branch and later want it back.
+
+Examples:
+  git clip wt1          # remove $root_path/wt1
+  git clip -f base      # remove the locked base worktree
+  git clip -k wt1       # park wt1: keep the directory, free the branch
+  git clip -k -b v2.1 wt1   # park it at the tag v2.1 instead
+EOF
+}
+
+FORCE=0
+KEEP=0
+DETACH_AT=""
+
+while getopts ":fkb:h" opt; do
+    case $opt in
+        f) FORCE=1 ;;
+        k) KEEP=1 ;;
+        b) DETACH_AT=$OPTARG ;;
+        h) usage; exit 0 ;;
+        :) echo "Error: -$OPTARG requires an argument" >&2; usage; exit 129 ;;
+        \?) echo "Error: unknown option -$OPTARG" >&2; usage; exit 129 ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+# -b says where to park a detached HEAD, which only happens under -k. Silently
+# ignoring it would mean removing a worktree the caller expected to keep.
+if [[ -n "$DETACH_AT" ]] && (( ! KEEP )); then
+    echo "Error: -b only applies with -k" >&2
+    usage
+    exit 129
+fi
+
+if [[ $# -ne 1 ]]; then
+    usage
+    exit 129
+fi
+
+WORKTREE_NAME=$1
+
+# Shell completion on a directory hands you "wt1/". That names the same
+# worktree, so trim trailing slashes rather than rejecting them below.
+while [[ "$WORKTREE_NAME" == */ ]]; do
+    WORKTREE_NAME=${WORKTREE_NAME%/}
+done
+
+# <worktree_name> is joined onto the project root, so it has to be a single path
+# segment, for the same reason `git bud` requires one: every worktree in
+# this layout is a direct child of the project root. Anything else names a path
+# this command didn't create and won't touch. ".git" is the bare repo itself.
+case "$WORKTREE_NAME" in
+    */*)
+        echo "Error: <worktree_name> must be a directory name, not a path: '${WORKTREE_NAME}'" >&2
+        exit 128
+        ;;
+    ""|"."|".."|".git")
+        echo "Error: invalid <worktree_name>: '${WORKTREE_NAME}'" >&2
+        exit 128
+        ;;
+esac
+
+if ! git rev-parse --git-dir > /dev/null 2>&1; then
+    echo "Error: not inside a git repository" >&2
+    exit 128
+fi
+
+BARE_DIR=$(cd "$(git rev-parse --git-common-dir)" && pwd)
+PROJECT_ROOT="${BARE_DIR%/.git}"
+WORKTREE_PATH="${PROJECT_ROOT}/${WORKTREE_NAME}"
+
+# The porcelain listing is the authority on what is a worktree of this repo.
+# A registered worktree whose directory is already gone still needs removing --
+# git cleans up its metadata under .git/worktrees/ -- so ask git, not the disk.
+WORKTREE_RECORD=$(git worktree list --porcelain | awk -v target="worktree ${WORKTREE_PATH}" '
+    $0 == target {found = 1}
+    found {print}
+    found && /^$/ {exit}
+')
+
+# Clipping off the branch and keeping the worktree. This path removes nothing,
+# so it shares only the lookup above with the removal below.
+if (( KEEP )); then
+    # Unlike a removal, a missing worktree is not an already-done no-op here:
+    # -k asked to keep a worktree that isn't there, which is a typo, not a
+    # state that was reached some other way.
+    if [[ -z "$WORKTREE_RECORD" ]]; then
+        if [[ -e "$WORKTREE_PATH" ]]; then
+            echo "Error: ${WORKTREE_PATH} exists and is not a worktree of this repo" >&2
+        else
+            echo "Error: no worktree at ${WORKTREE_PATH}" >&2
+        fi
+        exit 128
+    fi
+
+    # A worktree with no current branch already has a detached HEAD. That is the
+    # state this produces, so report it and succeed rather than detaching again
+    # at a different commit, which would move the worktree out from under
+    # whatever it is parked on.
+    CURRENT_BRANCH=$(git -C "$WORKTREE_PATH" branch --show-current)
+    if [[ -z "$CURRENT_BRANCH" ]]; then
+        echo "Worktree at ${WORKTREE_PATH} already has no branch checked out, skipping." >&2
+        echo "$WORKTREE_PATH"
+        exit 0
+    fi
+
+    # Where to park. The project's default branch is the same starting point
+    # `git seed` uses, and for the same reason: it is read from the bare repo's
+    # HEAD, so main and master both work without being told which. HEAD is
+    # per-worktree, so this has to be read from the common dir -- the current
+    # worktree's HEAD names the branch being clipped off, not the project default.
+    if [[ -z "$DETACH_AT" ]]; then
+        DEFAULT_BRANCH=$(git -C "$BARE_DIR" symbolic-ref --short HEAD 2>/dev/null || true)
+
+        if [[ -z "$DEFAULT_BRANCH" ]]; then
+            echo "Error: could not read the project's default branch from ${BARE_DIR}" >&2
+            echo "Pass -b <commit-ish> to say where to leave the detached HEAD." >&2
+            exit 128
+        fi
+
+        # Prefer the local branch. Falling back to the remote-tracking ref covers
+        # a default branch that exists upstream but was never checked out locally,
+        # which is the normal state for every branch `git seed` didn't check out.
+        if git show-ref --verify --quiet "refs/heads/${DEFAULT_BRANCH}"; then
+            DETACH_AT=$DEFAULT_BRANCH
+        elif git show-ref --verify --quiet "refs/remotes/origin/${DEFAULT_BRANCH}"; then
+            DETACH_AT="origin/${DEFAULT_BRANCH}"
+        else
+            echo "Error: default branch '${DEFAULT_BRANCH}' has no local or origin ref" >&2
+            echo "Pass -b <commit-ish> to say where to leave the detached HEAD." >&2
+            exit 128
+        fi
+    fi
+
+    if ! git -C "$WORKTREE_PATH" rev-parse --verify --quiet "${DETACH_AT}^{commit}" > /dev/null; then
+        echo "Error: '${DETACH_AT}' is not a commit in this repository" >&2
+        exit 128
+    fi
+
+    # Refuse a dirty worktree without -f, the same as a removal. Parking a
+    # worktree is meant to be reversible, and moving it onto another commit is
+    # not the moment to discover uncommitted work. `status --porcelain` counts
+    # staged, modified, and untracked-but-not-ignored files, so the files a setup
+    # hook drops in stay out of it as long as they are excluded -- see
+    # design_decisions.md on .git/info/exclude.
+    if [[ -n "$(git -C "$WORKTREE_PATH" status --porcelain)" ]]; then
+        if (( ! FORCE )); then
+            echo "Error: ${WORKTREE_PATH} has modified or untracked files" >&2
+            echo "Commit or clean them, or use -f to discard them." >&2
+            exit 128
+        fi
+        echo "Discarding modified and untracked files in ${WORKTREE_PATH}." >&2
+    fi
+
+    # The branch tip, captured before detaching: printed below so that deleting
+    # the branch afterwards is still a recoverable act.
+    BRANCH_SHA=$(git -C "$WORKTREE_PATH" rev-parse --short HEAD)
+
+    if (( FORCE )); then
+        # Untracked files first: --force covers local modifications, and clearing
+        # the untracked ones beforehand keeps the checkout from tripping over a
+        # file the target commit also wants to write.
+        git -C "$WORKTREE_PATH" clean -fd >&2
+        git -C "$WORKTREE_PATH" checkout --force --detach "$DETACH_AT" >&2
+    else
+        git -C "$WORKTREE_PATH" checkout --detach "$DETACH_AT" >&2
+    fi
+
+    echo "Worktree ${WORKTREE_PATH} kept; branch '${CURRENT_BRANCH}' (${BRANCH_SHA}) is free." >&2
+    echo "  delete it:   git branch -d ${CURRENT_BRANCH}" >&2
+    echo "  put it back: git bud ${WORKTREE_NAME} ${CURRENT_BRANCH}" >&2
+
+    echo "$WORKTREE_PATH"
+    exit 0
+fi
+
+if [[ -z "$WORKTREE_RECORD" ]]; then
+    # An unrelated directory that happens to sit at that name is not ours to
+    # delete; that is a collision, and it fails the same way it does in
+    # `git bud`. Nothing there at all is just an already-done clip.
+    if [[ -e "$WORKTREE_PATH" ]]; then
+        echo "Error: ${WORKTREE_PATH} exists and is not a worktree of this repo" >&2
+        exit 128
+    fi
+    echo "No worktree at ${WORKTREE_PATH}, skipping clip." >&2
+    echo "$PROJECT_ROOT"
+    exit 0
+fi
+
+# git refuses a locked worktree even with a single --force, and a locked
+# worktree is a deliberate marker -- `git seed` locks `base` so that pruning
+# can't take it. Report it as its own error instead of leaking `remove -f -f`.
+if grep -q '^locked' <<< "$WORKTREE_RECORD" && (( ! FORCE )); then
+    # The porcelain line is a bare "locked" when no reason was given, and
+    # "locked <reason>" when one was. Strip the keyword rather than cutting on a
+    # space, which on the bare form would hand back "locked" as its own reason.
+    LOCK_REASON=$(grep '^locked' <<< "$WORKTREE_RECORD" | sed 's/^locked *//')
+    echo "Error: ${WORKTREE_PATH} is locked${LOCK_REASON:+: ${LOCK_REASON}}" >&2
+    echo "Use -f to remove it anyway, or -k to keep it and clip off its branch." >&2
+    exit 128
+fi
+
+# Removing the worktree you are standing in leaves the shell in a deleted
+# directory. git allows it, and so do we -- the project root on stdout is
+# there to `cd` to -- but say so, because the shell won't.
+CURRENT_TOPLEVEL=$(git rev-parse --show-toplevel 2>/dev/null || true)
+if [[ -n "$CURRENT_TOPLEVEL" && "$CURRENT_TOPLEVEL" == "$WORKTREE_PATH" ]]; then
+    echo "Removing the current worktree; cd out of ${WORKTREE_PATH} afterwards." >&2
+fi
+
+if (( FORCE )); then
+    # Twice: the first --force covers modified or untracked files, the second
+    # is what git requires to override a lock.
+    git worktree remove --force --force "$WORKTREE_PATH" >&2
+else
+    git worktree remove "$WORKTREE_PATH" >&2
+fi
+
+echo "$PROJECT_ROOT"
