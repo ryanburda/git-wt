@@ -1,10 +1,10 @@
-#compdef git-clip
+#compdef git-wt-clip
 #
-# zsh completion for `git clip` and for the standalone
-# `git-clip` command.
+# zsh completion for `git wt-clip` and for the standalone
+# `git-wt-clip` command.
 #
 # zsh's _git dispatches an unknown sub-command to a function named
-# `_git-<sub-command>`, so this file has to keep the name `_git-clip`
+# `_git-<sub-command>`, so this file has to keep the name `_git-wt-clip`
 # and sit on your fpath.
 
 __git_wt_clip_worktree_names() {
@@ -12,7 +12,7 @@ __git_wt_clip_worktree_names() {
   # Under -k, only worktrees that have a branch checked out: there is nothing to
   # clip off one that already has a detached HEAD. Otherwise every worktree,
   # since any of them can be removed. The bare repo is skipped: it isn't a
-  # worktree to clip. `git clip` takes a name, not a path, so report the last
+  # worktree to clip. `git wt-clip` takes a name, not a path, so report the last
   # path segment.
   local want=''
   (( ${words[(I)-*k*]} )) && want=1
@@ -39,7 +39,7 @@ __git_wt_clip_commit_ish() {
   _describe -t commits commit-ish refs
 }
 
-_git-clip() {
+_git-wt-clip() {
   _arguments -S \
     '-k[keep the worktree: clip off its branch, leaving a detached HEAD]' \
     '-f[clip a locked worktree, or one with modified or untracked files]' \
@@ -48,4 +48,4 @@ _git-clip() {
     '1:worktree name:__git_wt_clip_worktree_names'
 }
 
-_git-clip "$@"
+_git-wt-clip "$@"

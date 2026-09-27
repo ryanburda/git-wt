@@ -4,10 +4,10 @@ set -e
 usage() {
     cat >&2 <<'EOF'
 Usage:
-  git clip [-f] <worktree_name>                       # clip the worktree off
-  git clip -k [-f] [-b <commit-ish>] <worktree_name>  # clip off only its branch
+  git wt-clip [-f] <worktree_name>                       # clip the worktree off
+  git wt-clip -k [-f] [-b <commit-ish>] <worktree_name>  # clip off only its branch
 
-The counterpart to `git bud`. Clips a worktree out of the repo
+The counterpart to `git wt-bud`. Clips a worktree out of the repo
 folder structure those commands enforce:
 
   $root_path/
@@ -19,7 +19,7 @@ The worktree is looked up as a sibling of the .git bare repo directory,
 regardless of where the command is run from within the repo.
 
 Only the worktree is removed. The branch it had checked out is left alone,
-the same way `git bud` leaves branches to `git branch`.
+the same way `git wt-bud` leaves branches to `git branch`.
 
 With -k, nothing is removed:
   A branch can only be checked out in one worktree at a time, so a worktree
@@ -31,11 +31,11 @@ With -k, nothing is removed:
   -k clips off the branch instead of the worktree. It detaches HEAD, so the
   worktree keeps no branch checked out while the directory and everything in it
   stays exactly where it is. The branch is then free to check out elsewhere or
-  delete, and `git bud` buds one back on when you want the worktree again.
+  delete, and `git wt-bud` buds one back on when you want the worktree again.
 
-    git clip -k wt1       # wt1 keeps its files; its branch is free
+    git wt-clip -k wt1       # wt1 keeps its files; its branch is free
     git branch -d feature    # ...so this now works
-    git bud wt1 main feature
+    git wt-bud wt1 main feature
 
   `git worktree list` is how you see which worktrees are parked this way; they
   show up as "(detached HEAD)".
@@ -70,7 +70,7 @@ Returns:
   Without -k that is the project root, since the worktree you removed may be
   the one you were in:
 
-    cd "$(git clip wt1)"
+    cd "$(git wt-clip wt1)"
 
   Clipping a worktree that isn't there is a no-op that still prints the root
   and exits 0, so this is safe to re-run. A path that exists but is not a
@@ -85,10 +85,10 @@ Returns:
   SHA, which is what you need if you delete the branch and later want it back.
 
 Examples:
-  git clip wt1          # remove $root_path/wt1
-  git clip -f base      # remove the locked base worktree
-  git clip -k wt1       # park wt1: keep the directory, free the branch
-  git clip -k -b v2.1 wt1   # park it at the tag v2.1 instead
+  git wt-clip wt1          # remove $root_path/wt1
+  git wt-clip -f base      # remove the locked base worktree
+  git wt-clip -k wt1       # park wt1: keep the directory, free the branch
+  git wt-clip -k -b v2.1 wt1   # park it at the tag v2.1 instead
 EOF
 }
 
@@ -130,7 +130,7 @@ while [[ "$WORKTREE_NAME" == */ ]]; do
 done
 
 # <worktree_name> is joined onto the project root, so it has to be a single path
-# segment, for the same reason `git bud` requires one: every worktree in
+# segment, for the same reason `git wt-bud` requires one: every worktree in
 # this layout is a direct child of the project root. Anything else names a path
 # this command didn't create and won't touch. ".git" is the bare repo itself.
 case "$WORKTREE_NAME" in
@@ -252,7 +252,7 @@ if (( KEEP )); then
 
     echo "Worktree ${WORKTREE_PATH} kept; branch '${CURRENT_BRANCH}' (${BRANCH_SHA}) is free." >&2
     echo "  delete it:   git branch -d ${CURRENT_BRANCH}" >&2
-    echo "  put it back: git bud ${WORKTREE_NAME} ${CURRENT_BRANCH}" >&2
+    echo "  put it back: git wt-bud ${WORKTREE_NAME} ${CURRENT_BRANCH}" >&2
 
     echo "$WORKTREE_PATH"
     exit 0
@@ -261,7 +261,7 @@ fi
 if [[ -z "$WORKTREE_RECORD" ]]; then
     # An unrelated directory that happens to sit at that name is not ours to
     # delete; that is a collision, and it fails the same way it does in
-    # `git bud`. Nothing there at all is just an already-done clip.
+    # `git wt-bud`. Nothing there at all is just an already-done clip.
     if [[ -e "$WORKTREE_PATH" ]]; then
         echo "Error: ${WORKTREE_PATH} exists and is not a worktree of this repo" >&2
         exit 128

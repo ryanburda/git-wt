@@ -1,10 +1,10 @@
-# bash completion for `git bud` and for the standalone
-# `git-bud` command.
+# bash completion for `git wt-bud` and for the standalone
+# `git-wt-bud` command.
 #
 # git's own completion dispatches `git <sub-command>` to a function named
 # `_git_<sub_command>`, and asks bash-completion's lazy loader for a file named
 # `git-<sub-command>` when that function isn't defined yet. Naming this file
-# `git-bud` and defining `_git_bud` satisfies both.
+# `git-wt-bud` and defining `_git_wt_bud` satisfies both.
 
 __git_wt_bud_branches ()
 {
@@ -28,7 +28,7 @@ __git_wt_bud_worktree_names ()
 
 	# <worktree_name> may name a worktree that does not exist yet, so this is a
 	# suggestion rather than the full set of valid answers: the worktrees that
-	# are already there, which `git bud` checks out into in place. The bare
+	# are already there, which `git wt-bud` checks out into in place. The bare
 	# repo is skipped. A name, not a path, so report the last path segment.
 	$g worktree list --porcelain 2> /dev/null | awk '
 		/^worktree /{wt = substr($0, 10); bare = 0}
@@ -38,16 +38,16 @@ __git_wt_bud_worktree_names ()
 	' | sed 's|.*/||'
 }
 
-_git_bud ()
+_git_wt_bud ()
 {
 	local cur=${COMP_WORDS[COMP_CWORD]}
 	local i idx=0 args=0
 
 	# Find the sub-command so argument positions come out the same whether we
-	# were reached as `git bud` or as `git-bud`.
+	# were reached as `git wt-bud` or as `git-wt-bud`.
 	for ((i = 0; i < COMP_CWORD; i++)); do
 		case ${COMP_WORDS[i]} in
-		bud | git-bud | */git-bud)
+		wt-bud | git-wt-bud | */git-wt-bud)
 			idx=$i
 			break
 			;;
@@ -73,6 +73,6 @@ _git_bud ()
 	esac
 }
 
-# The `git bud` form is dispatched by git's completion; this covers
+# The `git wt-bud` form is dispatched by git's completion; this covers
 # running the command directly.
-complete -F _git_bud git-bud
+complete -F _git_wt_bud git-wt-bud

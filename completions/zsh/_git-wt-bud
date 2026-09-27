@@ -1,10 +1,10 @@
-#compdef git-bud
+#compdef git-wt-bud
 #
-# zsh completion for `git bud` and for the standalone
-# `git-bud` command.
+# zsh completion for `git wt-bud` and for the standalone
+# `git-wt-bud` command.
 #
 # zsh's _git dispatches an unknown sub-command to a function named
-# `_git-<sub-command>`, so this file has to keep the name `_git-bud`
+# `_git-<sub-command>`, so this file has to keep the name `_git-wt-bud`
 # and sit on your fpath.
 
 __git_wt_bud_branches() {
@@ -25,7 +25,7 @@ __git_wt_bud_worktree_names() {
   # <worktree_name> may name a worktree that does not exist yet, so these are
   # suggestions rather than the full set of valid answers. The ones with no
   # branch checked out come first: those are the parked worktrees waiting for a
-  # branch, which is what `git bud` is for. The bare repo has no checkout and
+  # branch, which is what `git wt-bud` is for. The bare repo has no checkout and
   # is skipped. A name, not a path, so report the last path segment.
   local awk_body='
     /^worktree /{wt = substr($0, 10); branch = 0; bare = 0}
@@ -43,7 +43,7 @@ __git_wt_bud_worktree_names() {
   (( $#attached )) && _describe -t worktrees 'worktree on a branch' attached
 }
 
-_git-bud() {
+_git-wt-bud() {
   _arguments -S \
     '-f[check out into a worktree with modified or untracked files, discarding them]' \
     '-h[print help and exit]' \
@@ -52,4 +52,4 @@ _git-bud() {
     '3:new branch:'
 }
 
-_git-bud "$@"
+_git-wt-bud "$@"

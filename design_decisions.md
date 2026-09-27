@@ -48,7 +48,7 @@ Every worktree answers to its own directory name.
 
 ### Why nested names are rejected
 
-`git bud` takes a *name* and joins it onto the project root. A name
+`git wt-bud` takes a *name* and joins it onto the project root. A name
 containing `/` is a relative path, and plain `git worktree add` would happily
 create the intermediate directories, undoing the guarantee above:
 
@@ -59,10 +59,10 @@ project/
 └── b/wt/      <- .git/worktrees/wt1     <- collision is back
 ```
 
-So `git bud` requires a single path segment that can be thought of as a name:
+So `git wt-bud` requires a single path segment that can be thought of as a name:
 
 ```sh
-$ git bud a/wt main
+$ git wt-bud a/wt main
 Error: <worktree_name> must be a directory name, not a path: 'a/wt'
 ```
 
@@ -75,7 +75,7 @@ still takes an arbitrary path.
 
 ### Names, not paths
 
-For the same reason, `git bud`, `git clip`, and the completions all treat
+For the same reason, `git wt-bud`, `git wt-clip`, and the completions all treat
 `<worktree_name>` as a name joined onto the project root derived from the bare
 repo's location, never onto the current directory. The same command run from a
 nested subdirectory, or from a *different* worktree, acts on the same place.
@@ -98,8 +98,8 @@ the base worktree that all other worktrees get added alongside.
 
 `git seed` locks the worktree it creates. The lock marks it as the project's
 default worktree and protects it from `git worktree prune`. It also means
-removing it is a deliberate act: `git clip base` fails, and `git clip -f
-base` is the only way through. `git clip -k base` needs no `-f`: it removes
+removing it is a deliberate act: `git wt-clip base` fails, and `git wt-clip -f
+base` is the only way through. `git wt-clip -k base` needs no `-f`: it removes
 nothing, so the lock has nothing to protect against.
 
 ## Why `git seed` reshapes the bare repo
@@ -126,7 +126,7 @@ being told which.
 
 ## Why `wt-setup` is a separate command
 
-`git seed` and `git bud` create worktrees and stop there. `git wt-setup` 
+`git seed` and `git wt-bud` create worktrees and stop there. `git wt-setup` 
 prepares a worktree by running project specific tasks like installing
 dependencies or copying an `.env`. This is yours to customize to suit your needs.
 
@@ -231,11 +231,11 @@ it for all of them and for the next worktree you create.
 
 Whichever you pick, make sure the result is ignored. These files land *inside*
 the worktree, so anything the repo's `.gitignore` doesn't already cover shows
-up as untracked, and `git clip` then refuses to remove that worktree without
+up as untracked, and `git wt-clip` then refuses to remove that worktree without
 `-f`:
 
 ```
-$ git clip wt1
+$ git wt-clip wt1
 fatal: '/home/you/code/project_a/wt1' contains modified or untracked files, use --force to delete it
 ```
 
@@ -271,7 +271,7 @@ shaping for years:
   branch, leaving the worktree behind.
 
 `git wt-setup` is the fourth, and it deliberately isn't one of them. See
-[below](#why-wt-setup-keeps-its-prefix).
+[below](#why-wt-setup-isnt-a-gardening-verb).
 
 Names that were considered and rejected:
 
@@ -284,51 +284,49 @@ Names that were considered and rejected:
 - `root` for the default worktree, back when it was being named. It reads as
   superuser, or as the root of the repo. `base` won that one.
 
-### Why no prefix
+### Why the `wt-` prefix
 
-`git bud` and `git clip` were `git wt-add` and `git wt-rm` before, and the
-shared `wt-` prefix bought two things: it grouped the family under one
-tab-completion stem, and it kept the names out of the way of other `git-*`
-extensions on your PATH.
+`git wt-bud` and `git wt-clip` were `git bud` and `git clip` for a while. The
+argument for the bare names was that the prefix is a tax on every use of the
+commands, which is where you actually spend the time: `git bud wt1 main feature`
+reads as a sentence, and the theme only works if the words are allowed to be
+words.
 
-Both are worth less than they look. The set is four commands, not forty, and the
-names are distinctive enough that a listing does not need a stem to make them
-findable -- `git <TAB>` shows them with descriptions either way. Against that,
-the prefix was a tax on every use of the commands, which is where you actually
-spend the time. `git bud wt1 main feature` reads as a sentence; `git wt-add wt1
-main feature` reads as a compiler flag. The theme only works if the words are
-allowed to be words.
+That is true, and it is still the wrong trade. `bud` and `clip` are exactly the
+names some other tool, alias, or future git will want, and a bare verb in your
+shell history says nothing about worktrees to anyone reading it later -- you
+included. Against a few keystrokes, the prefix buys a tab-completion stem that
+groups the family, and it keeps these names out of the way of every other
+`git-*` extension on your PATH.
 
-What the prefix did buy, it still buys where it is invisible: the project is
-still `git-wt`, so the repo, `GIT_WT_HOME`, and the zsh loader keep the name,
-and the shell completion helpers stay in a `__git_wt_*` namespace. That last one
-is not cosmetic -- `__git_<noun>` belongs to bash-completion's own git module
+The prefix is also already everywhere the commands aren't. The project is
+`git-wt`, so the repo, `GIT_WT_HOME`, and the zsh loader carry the name, and the
+shell completion helpers live in a `__git_wt_*` namespace. That last one is not
+cosmetic -- `__git_<noun>` belongs to bash-completion's own git module
 (`__git_refs`, `__git_heads`, `__git_find_on_cmdline`), and a private helper has
-no business in it. Only the subcommand names, the part you type, dropped the
-prefix -- and one of those kept it.
+no business in it. Having the part you type match the project it comes from is
+the consistent end of that, not an exception to it.
 
-### Why `wt-setup` keeps its prefix
+The verbs survive the prefix intact. `wt-bud` and `wt-clip` still say bud and
+clip; they just say which tree first.
 
-`git wt-setup` is the one command that did not lose the prefix, and it is not an
+### Why `wt-setup` isn't a gardening verb
+
+`git wt-setup` shares the prefix but not the theme, and that is not an
 oversight.
 
-It is the only one that isn't a gardening act. `seed`, `bud`, and `clip` all do
-something to the tree, and each word says which. `wt-setup` runs a hook you
-wrote, in a worktree, to install whatever that project needs -- plumbing, named
-after the `.wt-setup/` directory it runs. A bonsai verb over the top of that
-would be decoration, not description. `pot` was the candidate, and it read well
--- potting gives a plant the soil it needs to live, and it is where a bonsai's
-roots get worked on, which is what `git clip -k` preserves -- but it named the
-metaphor rather than the job, and the job is "run the setup hook".
+It is the only one of the commands that isn't a gardening act. `seed`, `bud`,
+and `clip` all do something to the tree, and each word says which. `wt-setup`
+runs a hook you wrote, in a worktree, to install whatever that project needs --
+plumbing, named after the `.wt-setup/` directory it runs. A bonsai verb over the
+top of that would be decoration, not description. `pot` was the candidate, and
+it read well -- potting gives a plant the soil it needs to live, and it is where
+a bonsai's roots get worked on, which is what `git wt-clip -k` preserves -- but
+it named the metaphor rather than the job, and the job is "run the setup hook".
 
-Dropping the prefix without renaming it would have been worse than either. `git
-setup` is exactly the name some other tool, alias, or future git will want, and
-unlike `bud` or `clip` it says nothing about worktrees. The prefix is what keeps
-it honest: `wt-setup` is the worktree-setup command, it reads the `.wt-setup/`
-directory, and the two names matching is the point.
-
-So the odd name out marks the odd command out, which is the useful thing for it
-to do.
+So `wt-setup` is the worktree-setup command, it reads the `.wt-setup/`
+directory, and the two names matching is the point. The odd name out marks the
+odd command out, which is the useful thing for it to do.
 
 ## Putting a worktree on ice
 
@@ -337,7 +335,7 @@ exactly one worktree at a time, so an idle worktree isn't just sitting on disk
 doing nothing -- it's sitting on a branch name:
 
 ```
-$ git bud wt2 feature
+$ git wt-bud wt2 feature
 fatal: 'feature' is already used by worktree at '/home/you/code/project_a/wt1'
 ```
 
@@ -349,13 +347,13 @@ free up a branch name.
 
 Detaching HEAD frees the branch and costs nothing. A worktree with a detached
 HEAD has no current branch, so nothing is claimed, and the directory is
-untouched. That is `git clip -k`, and `git bud` is the other direction:
+untouched. That is `git wt-clip -k`, and `git wt-bud` is the other direction:
 it checks a branch back out in a worktree that already exists.
 
 ```sh
-git clip -k wt1    # wt1 keeps its files; branch 'feature' is free
+git wt-clip -k wt1    # wt1 keeps its files; branch 'feature' is free
 git branch -d feature # ...so this now works
-git bud wt1 main other-feature
+git wt-bud wt1 main other-feature
 ```
 
 The pair turns "remove the worktree" into "park the worktree", which is what you
@@ -363,7 +361,7 @@ actually wanted whenever the setup was the expensive part.
 
 ### Why budding and growing are one command
 
-`git bud` creates a worktree when there isn't one and checks the branch out
+`git wt-bud` creates a worktree when there isn't one and checks the branch out
 in place when there is. Those were briefly two commands taking identical
 arguments, which is a sign they were one command: at the call site you know the
 worktree name and the branch you want in it, and whether the directory happens
@@ -409,7 +407,7 @@ keep.
 
 ### Why it detaches at the default branch
 
-`git clip -k` parks HEAD at the project's default branch, not at the tip of
+`git wt-clip -k` parks HEAD at the project's default branch, not at the tip of
 the branch it is clipping off.
 
 Either one frees the branch, so this is a choice about what a parked worktree
@@ -432,7 +430,7 @@ what you want -- a release tag, an older commit the worktree is pinned to.
 ### Why it doesn't delete the branch
 
 Freeing the branch is the point, and deleting it is the obvious next step, but
-`git clip -k` stops at freeing it. This is the same line the removing half
+`git wt-clip -k` stops at freeing it. This is the same line the removing half
 draws: these commands manage worktrees and leave branches to `git branch`. A
 command that deletes a branch as a side effect of parking a directory is one you
 have to think twice before running.
@@ -441,8 +439,8 @@ So it prints what you need instead, including the SHA, which is what makes
 deleting the branch recoverable rather than final:
 
 ```
-$ git clip -k wt1
+$ git wt-clip -k wt1
 Worktree /home/you/code/project_a/wt1 kept; branch 'feature' (ff74ab3) is free.
   delete it:   git branch -d feature
-  put it back: git bud wt1 feature
+  put it back: git wt-bud wt1 feature
 ```

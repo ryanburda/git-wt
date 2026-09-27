@@ -4,8 +4,8 @@ set -e
 usage() {
     cat >&2 <<'EOF'
 Usage:
-  git bud [-f] <worktree_name> <branch>               # check out an existing branch
-  git bud [-f] <worktree_name> <branch> <new_branch>  # create new_branch off branch
+  git wt-bud [-f] <worktree_name> <branch>               # check out an existing branch
+  git wt-bud [-f] <worktree_name> <branch> <new_branch>  # create new_branch off branch
 
 Put a branch in a worktree, growing the worktree first if it isn't there yet.
 
@@ -21,13 +21,13 @@ The worktree is created as a sibling of the .git bare repo directory,
 regardless of where the command is run from within the repo.
 
 A worktree that is already there is not created again; the branch is checked
-out in it where it stands. That is the whole point of `git clip -k`, which
+out in it where it stands. That is the whole point of `git wt-clip -k`, which
 leaves a worktree in place with no branch checked out: everything expensive
 inside it -- the node_modules, the .venv, the .env, every slow thing
 `git wt-setup` did -- survives, and budding a branch back on costs nothing.
 
-  git clip -k wt1              # park wt1, freeing its branch
-  git bud wt1 main feature     # months later, back to work in wt1
+  git wt-clip -k wt1              # park wt1, freeing its branch
+  git wt-bud wt1 main feature     # months later, back to work in wt1
 
 Nothing has to be parked first. Budding onto a worktree that is on a branch
 already is just a checkout, and budding the branch it is already on is a no-op.
@@ -62,13 +62,13 @@ Returns:
   set to origin/<branch> if that remote branch exists.
 
   A branch checked out in another worktree is an error -- git allows a branch in
-  only one worktree at a time. That is the restriction `git clip -k` exists
+  only one worktree at a time. That is the restriction `git wt-clip -k` exists
   to work around: park the other worktree first.
 
 Examples:
-  git bud wt1 main          # checkout main in $root_path/wt1
-  git bud wt1 main feature  # create branch "feature" off main in $root_path/wt1
-  git bud -f wt1 main       # discard wt1's local changes first
+  git wt-bud wt1 main          # checkout main in $root_path/wt1
+  git wt-bud wt1 main feature  # create branch "feature" off main in $root_path/wt1
+  git wt-bud -f wt1 main       # discard wt1's local changes first
 EOF
 }
 
@@ -133,7 +133,7 @@ TARGET_BRANCH=${NEW_BRANCH:-$BRANCH}
 if git worktree list --porcelain | grep -qFx "worktree ${WORKTREE_PATH}"; then
     # The worktree is already there, so this is a checkout rather than an add.
     # Nothing inside it is touched beyond the checkout itself, which is what
-    # makes parking a worktree with `git clip -k` worth doing.
+    # makes parking a worktree with `git wt-clip -k` worth doing.
 
     # Already on the branch asked for is the normal case for a setup script that
     # runs on every bootstrap, not an error: report it, print the path, and exit
@@ -147,7 +147,7 @@ if git worktree list --porcelain | grep -qFx "worktree ${WORKTREE_PATH}"; then
         exit 0
     fi
 
-    # Refuse a dirty worktree without -f, the same as `git clip`.
+    # Refuse a dirty worktree without -f, the same as `git wt-clip`.
     # `status --porcelain` counts staged, modified, and untracked-but-not-ignored
     # files, so the files a setup hook drops in stay out of it as long as they
     # are excluded -- see design_decisions.md on .git/info/exclude.
@@ -170,7 +170,7 @@ if git worktree list --porcelain | grep -qFx "worktree ${WORKTREE_PATH}"; then
     fi
 
     # `git switch` is what gives the useful error when the branch is checked out
-    # in another worktree -- the restriction `git clip -k` exists to work
+    # in another worktree -- the restriction `git wt-clip -k` exists to work
     # around -- so let it report that rather than pre-empting it with a worse
     # message. --discard-changes is the -f half that covers tracked files; the
     # untracked ones were cleaned above.
