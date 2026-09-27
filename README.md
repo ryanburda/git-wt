@@ -51,6 +51,9 @@ git wt-bud wt1 main feature     # months later, back to work in wt1
 See the [design_decisions](design_decisions.md) doc for implementation
 specific details.
 
+See the [lazygit](docs/lazygit.md) doc to drive these commands from lazygit's
+worktrees panel.
+
 ## Install
 
 ```sh
