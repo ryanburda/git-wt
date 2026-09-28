@@ -12,17 +12,15 @@ __git_wt_worktree_names ()
 	local g=git
 	declare -f __git > /dev/null 2>&1 && g=__git
 
-	# With $1 set to "branch", only worktrees that have a branch checked out:
-	# under -k there is nothing to clip off one that already has a detached
-	# HEAD. Otherwise every worktree, since any of them can be removed. The bare
-	# repo is skipped: it isn't a worktree to clip. `git wt-clip` takes a name,
-	# not a path, so report the last path segment.
-	$g worktree list --porcelain 2> /dev/null | awk -v need_branch="${1:-}" '
-		/^worktree /{wt = substr($0, 10); branch = 0; bare = 0}
+	# Every worktree: one on a branch has a branch to clip off, and one already
+	# parked gets moved forward to mainline's new tip, so both are worth
+	# offering. The bare repo is skipped: it isn't a worktree to clip.
+	# `git wt-clip` takes a name, not a path, so report the last path segment.
+	$g worktree list --porcelain 2> /dev/null | awk '
+		/^worktree /{wt = substr($0, 10); bare = 0}
 		/^bare$/{bare = 1}
-		/^branch /{branch = 1}
-		/^$/{if (wt != "" && !bare && (need_branch == "" || branch)) print wt; wt = ""}
-		END{if (wt != "" && !bare && (need_branch == "" || branch)) print wt}
+		/^$/{if (wt != "" && !bare) print wt; wt = ""}
+		END{if (wt != "" && !bare) print wt}
 	' | sed 's|.*/||'
 }
 
@@ -43,7 +41,7 @@ _git_wt_clip ()
 {
 	local cur=${COMP_WORDS[COMP_CWORD]}
 	local prev=${COMP_WORDS[COMP_CWORD - 1]}
-	local i idx=0 args=0 keep=
+	local i idx=0 args=0
 
 	# Find the sub-command so argument positions come out the same whether we
 	# were reached as `git wt-clip` or as `git-wt-clip`.
@@ -63,26 +61,23 @@ _git_wt_clip ()
 	fi
 
 	if [[ $cur == -* ]]; then
-		COMPREPLY=($(compgen -W "-k -f -b -h" -- "$cur"))
+		COMPREPLY=($(compgen -W "-n -f -b -h" -- "$cur"))
 		return
 	fi
 
-	# [-k] [-f] [-b <commit-ish>] <worktree_name>: count only the non-option
+	# [-n] [-f] [-b <commit-ish>] [<worktree_name>]: count only the non-option
 	# words before the cursor, skipping -b's argument, so the name completes
-	# whatever flags came first. -k narrows which worktrees are worth offering.
+	# whatever flags came first.
 	for ((i = idx + 1; i < COMP_CWORD; i++)); do
 		if [[ ${COMP_WORDS[i]} == -b ]]; then
 			((i++))
 			continue
 		fi
-		case ${COMP_WORDS[i]} in
-		-*k* | -k) keep=branch ;;
-		esac
 		[[ ${COMP_WORDS[i]} == -* ]] || ((args++))
 	done
 
 	if ((args == 0)); then
-		COMPREPLY=($(compgen -W "$(__git_wt_worktree_names "$keep")" -- "$cur"))
+		COMPREPLY=($(compgen -W "$(__git_wt_worktree_names)" -- "$cur"))
 	else
 		COMPREPLY=()
 	fi

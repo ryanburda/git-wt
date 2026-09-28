@@ -11,20 +11,13 @@ keep it current, remove it.
 | --- | --- | --- |
 | `b` | `git wt-bud` | Prompts for worktree name, base branch, and an optional new branch |
 | `s` | `git wt-setup` | Runs the project's `.wt-setup/setup` hook in the selected worktree |
-| `c` | `git wt-clip -k` | Parks the selected worktree: keeps the directory, frees its branch |
-| `S` | `git wt-sync` | Fetches, then brings the *selected* parked worktree up to mainline |
+| `c` | `git wt-clip` | Parks the selected worktree at mainline: keeps the directory, frees its branch |
 | `d` | *(built-in)* | Removes the worktree — lazygit already runs `git worktree remove` |
 
-**Local branches panel**
-
-| Key | Command | What it does |
-| --- | --- | --- |
-| `S` | `git wt-sync` | Fetches, then brings the *current* worktree up to mainline, if it's parked |
-| `f` | *(built-in)* | Fast-forwards the selected branch from its upstream |
-
-There's deliberately no binding for plain `git wt-clip`. lazygit's own `d` does
-the same `git worktree remove`, so the only clip worth a key is `-k`, which
-lazygit has no equivalent for.
+Removal has no custom binding because it needs none: lazygit's own `d` runs
+`git worktree remove`, which is the whole of that job. `c` is the one lazygit
+has no equivalent for — parking a worktree without tearing it down, and
+bringing an already-parked one up to mainline.
 
 Nothing installs these. `install.sh` only touches `~/.local/bin` and the
 completions; this is a snippet you paste into your own lazygit config.
@@ -55,28 +48,18 @@ customCommands:
     description: "Run the project's setup hook against the worktree (wt-setup)"
     output: popup
   - key: 'c'
-    command: 'git wt-clip -k "$(basename "{{.SelectedWorktree.Path}}")"'
+    command: 'git wt-clip "$(basename "{{.SelectedWorktree.Path}}")"'
     context: 'worktrees'
-    description: 'Clip the branch off the worktree, keeping the directory (wt-clip -k)'
-    output: none
-  - key: 'S'
-    command: 'git wt-sync "$(basename "{{.SelectedWorktree.Path}}")"'
-    context: 'worktrees'
-    description: 'Bring the parked worktree up to date with the default branch (wt-sync)'
-    output: popup
-  - key: 'S'
-    command: 'git wt-sync'
-    context: 'localBranches'
-    description: 'Bring the current worktree up to date with the default branch (wt-sync)'
+    description: 'Clip the branch off the worktree, parking it at the default branch (wt-clip)'
     output: popup
 ```
 
 ## Why it's written this way
 
-**`basename` on three of the four.** `git wt-bud`, `git wt-clip` and
-`git wt-sync` take a worktree *name*, which they join onto the project root;
-`git wt-setup` takes a *path*. lazygit only offers `{{.SelectedWorktree.Path}}`,
-so the first three run it through `basename` and `wt-setup` uses it as-is.
+**`basename` on two of the three.** `git wt-bud` and `git wt-clip` take a
+worktree *name*, which they join onto the project root; `git wt-setup` takes a
+*path*. lazygit only offers `{{.SelectedWorktree.Path}}`, so the first two run
+it through `basename` and `wt-setup` uses it as-is.
 
 `{{.SelectedWorktree.Name}}` looks like the tidier spelling, but `Name` is a
 method on lazygit's worktree model rather than a struct field, and `Path` is
@@ -115,9 +98,9 @@ Substring mode already matches space-separated fragments, so `feat auth` finds
 in every other panel too. lazygit moved the default away from fuzzy in 0.41
 because it matched too loosely, so try substring before changing it.
 
-**`output: popup` on `s`.** `b` and `c` have nothing to say on success, and
-`none` keeps them to a spinner and a refresh. `wt-setup` is the command whose
-*silence* is a real result:
+**`output: popup` on `s`.** `b` has nothing to say on success, and `none` keeps
+it to a spinner and a refresh. `wt-setup` is the command whose *silence* is a
+real result:
 
 ```
 No setup hook at /home/you/code/project_a/.wt-setup/setup; nothing to do.
@@ -135,48 +118,36 @@ separate from `wt-bud` in the first place — so if you'd rather watch an
 `npm install` scroll, use `output: terminal`, or `output: logWithPty` together
 with `gui.showCommandLog: true`.
 
-**`S` in two panels, same one-worktree command.** `wt-sync` never touches more
-than one worktree: the one you name, or the one you're standing in. The
-worktrees panel always has a worktree selected, so it passes the name and you
-can sync a worktree you aren't in. The local branches panel has none to pass,
-so it runs the bare form against whichever worktree lazygit is working in —
-the same default `wt-setup` uses.
-
-That second binding is a no-op whenever the current worktree is on a branch,
-which is most of the time. It earns its key when you're sitting *in* a parked
-worktree and want it current before budding a branch back on. If you'd rather
-not have it, drop it and keep the worktrees-panel binding, which is the one
-that lets you pick.
-
-**Why not `f`.** `f` is the obvious mnemonic, and in the local branches panel
-it's already `fastForward` — lazygit fast-forwards the selected branch from its
-upstream without checking it out. That is the branch-level version of what
-`wt-sync` does for parked worktrees, so the two belong side by side rather than
-one shadowing the other. `S` is free in both panels, and your remotes panel may
-already use it for `git fetch -p`, which keeps the letter meaning roughly the
-same thing everywhere.
-
-**`output: popup` on both.** Like `wt-setup`, `wt-sync`'s successes are the
-ones worth seeing, because two of them change nothing:
+**`output: popup` on `c`, not `none`.** `wt-clip` has something to say on every
+outcome, and two of them change nothing:
 
 ```
-Worktree /home/you/code/project_a/wt1 synced: 3a4f2c1 -> 9b2e105 (origin/main).
-Worktree /home/you/code/project_a/wt1 is already at origin/main (9b2e105), skipping.
-Worktree /home/you/code/project_a/base is on branch 'main', not parked; nothing to sync.
+Worktree /home/you/code/project_a/wt1 kept; branch 'feature' (ff74ab3) is free.
+Worktree /home/you/code/project_a/wt1 moved: 3a4f2c1 -> 9b2e105 (origin/main).
+Worktree /home/you/code/project_a/wt1 is already parked at origin/main (9b2e105), skipping.
 ```
 
-All three exit 0, so under `output: none` they're indistinguishable — the
-panel just blinks and refreshes whether the worktree moved or not. The refusals
-(parked off mainline, dirty without `-f`) exit non-zero and would surface
-anyway, but the popup puts all five outcomes in the same place.
+All three exit 0, so under `output: none` they're indistinguishable — the panel
+just blinks and refreshes whether the worktree moved or not. The first one also
+carries the clipped branch's short SHA, which is the thing you want in front of
+you if you're about to delete that branch.
 
-**No `-n`.** Both bindings fetch. `-n` exists for the case where something else
-just did — chaining `wt-sync` onto lazygit's own fetch key, or looping over
-several repos — and neither binding is that case.
+**No binding in the local branches panel.** An earlier version of this doc bound
+`S` there to sync the *current* worktree. That binding existed because
+`wt-sync` was a no-op on a worktree that still had a branch checked out — safe
+to fire from anywhere. `wt-clip` is not: run bare in a worktree you're actively
+working in, it detaches HEAD from that branch, which is exactly what it's for
+and exactly what you don't want from a stray keypress. Name the worktree from
+the worktrees panel instead, where you can see what you're pointing at.
+
+**No `-n`.** The binding fetches. `-n` exists for the case where something else
+just did — chaining `wt-clip` onto lazygit's own fetch key, or looping over
+several worktrees — and this binding isn't that case.
 
 **Errors surface either way.** A non-zero exit returns an error to lazygit,
 which shows it in the usual error popup, so the guard rails — a dirty worktree,
-a locked worktree, an unknown ref — don't fail quietly under `output: none`.
+an unknown ref, a worktree that isn't there — don't fail quietly under
+`output: none`.
 
 ## Notes
 
@@ -184,10 +155,9 @@ Custom commands take precedence over built-in keybindings, so `b`, `s`, and `c`
 win in the worktrees panel even if a future lazygit binds them.
 
 `c` on the worktree lazygit is currently running in is fine — the directory
-survives, that's the point of `-k`. The same is not true of `d`, which removes
-the directory out from under the running instance.
+survives, that's the point. The same is not true of `d`, which removes the
+directory out from under the running instance.
 
 Neither `b` nor `c` passes `-f`, so a worktree with modified or untracked files
 is an error rather than a silent discard. Run the forced variant from a shell
-when you actually mean it. `S` doesn't pass `-f` either, and fails the same way
-on a worktree with modified or untracked files.
+when you actually mean it.

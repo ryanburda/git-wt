@@ -14,7 +14,7 @@ REPO_URL=https://github.com/ryanburda/git-wt.git
 GIT_WT_HOME=${GIT_WT_HOME:-"${XDG_DATA_HOME:-$HOME/.local/share}/git-wt"}
 BIN_DIR=${BIN_DIR:-"$HOME/.local/bin"}
 
-COMMANDS="git-wt-bud git-wt-clip git-wt-setup git-wt-sync git-seed"
+COMMANDS="git-wt-bud git-wt-clip git-wt-setup git-seed"
 
 die() {
     echo "install.sh: $*" >&2

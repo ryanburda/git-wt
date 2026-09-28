@@ -20,15 +20,12 @@ autoload -Uz _git-wt-clip
 compdef _git-wt-clip git-wt-clip
 autoload -Uz _git-wt-setup
 compdef _git-wt-setup git-wt-setup
-autoload -Uz _git-wt-sync
-compdef _git-wt-sync git-wt-sync
 
 # Offer the commands, with descriptions, when completing `git <TAB>`.
 zstyle ':completion:*:*:git:*' user-commands \
     seed:'clone a repo and grow its first worktree in one step' \
     wt-bud:'put a branch in a worktree, growing the worktree if needed' \
-    wt-clip:'clip a worktree off, or with -k clip off only its branch' \
-    wt-setup:'run the project .wt-setup/setup hook in a worktree' \
-    wt-sync:'bring a parked worktree up to date with the default branch'
+    wt-clip:'clip the branch off a worktree, parking it at the default branch' \
+    wt-setup:'run the project .wt-setup/setup hook in a worktree'
 
 unset _git_wt_root

@@ -33,29 +33,31 @@ project/
 | --- | --- |
 | `git seed` | Clone a repo and grow its first worktree in one step |
 | `git wt-bud` | Put a branch in a worktree, growing the worktree if needed |
-| `git wt-clip` | Clip a worktree off, or with `-k` clip off only its branch |
-| `git wt-sync` | Bring a parked worktree up to date with the default branch |
+| `git wt-clip` | Clip the branch off a worktree, parking it at the default branch |
 | `git wt-setup` | Run a project's `.wt-setup/setup` hook in a worktree |
 
-`git wt-clip -k` is how you put a worktree on ice without tearing it down. A
+`git wt-clip` is how you put a worktree on ice without tearing it down. A
 worktree holds its branch hostage since a branch can only exist in one
-worktree at a time. `-k` clips off the branch instead of the worktree,
-leaving a detached HEAD, so the branch is free to check out elsewhere
-or delete while everything created by `git wt-setup` stays around.
-`git wt-bud` buds a branch back on:
+worktree at a time. Clip clips off the branch rather than the worktree,
+leaving a detached HEAD at the latest commit on the default branch, so the
+branch is free to check out elsewhere or delete while everything created by
+`git wt-setup` stays around. `git wt-bud` buds a branch back on:
 
 ```sh
-git wt-clip -k wt1              # park it; its branch is free to delete
+git wt-clip wt1                 # park it; its branch is free to delete
 git wt-bud wt1 main feature     # months later, back to work in wt1
 ```
 
-A parked worktree is frozen at the commit it was clipped at — a detached HEAD
-is a commit, not a ref, so fetching never moves it. `git wt-sync` is what
-brings one forward:
+Re-running it is also how a parked worktree moves forward. A detached HEAD is
+a commit, not a ref, so fetching never moves one on its own:
 
 ```sh
-git wt-sync wt1                 # fetch, then advance wt1 to mainline
+git wt-clip wt1                 # fetch, then advance wt1 to mainline
 ```
+
+Removing a worktree outright is `git worktree remove`, which already does that
+job well. The layout is the point: every worktree is a direct child of the
+project root, so the path it wants is never ambiguous.
 
 See the [design_decisions](design_decisions.md) doc for implementation
 specific details.
@@ -161,12 +163,12 @@ from. Afterwards the branch's upstream is set to `origin/<branch>` if that
 remote branch exists.
 
 A worktree that's already there is not created again — the branch is checked out
-in it where it stands. That's what makes [`git wt-clip -k`](#git-wt-clip) worth
+in it where it stands. That's what makes [`git wt-clip`](#git-wt-clip) worth
 using: a parked worktree keeps its `node_modules`, its `.venv`, its `.env`, and
 budding a branch back on costs nothing.
 
 ```sh
-git wt-clip -k wt1              # park wt1, freeing its branch
+git wt-clip wt1                 # park wt1, freeing its branch
 git wt-bud wt1 main feature     # months later, back to work in wt1
 ```
 
@@ -180,7 +182,7 @@ changes. A brand-new worktree has nothing to discard, so `-f` does nothing
 there.
 
 A branch checked out in *another* worktree is an error — git allows a branch in
-only one worktree at a time. That's the restriction `git wt-clip -k` exists to
+only one worktree at a time. That's the restriction `git wt-clip` exists to
 work around; park the other worktree first.
 
 Growing the worktree is all this does; preparing it is `git wt-setup`. A
@@ -190,31 +192,19 @@ usually nothing left to run.
 ### `git wt-clip`
 
 ```
-git wt-clip [-f] <worktree_name>                       # clip the worktree off
-git wt-clip -k [-f] [-b <commit-ish>] <worktree_name>  # clip off only its branch
+git wt-clip [-n] [-f] [<worktree_name>]                  # clip off its branch
+git wt-clip [-n] [-f] -b <commit-ish> [<worktree_name>]  # park somewhere else
 ```
 
 ```sh
-git wt-clip wt1        # remove <project_root>/wt1
-git wt-clip -f base    # remove the locked base worktree
-git wt-clip -k wt1     # keep wt1, free its branch
+git wt-clip            # clip the worktree you're standing in
+git wt-clip wt1        # clip <project_root>/wt1
+git wt-clip -n wt1     # no fetch; something else already did one
 ```
 
-The counterpart to `git wt-bud`, taking a name the same way. Only the worktree
-is removed; its branch is left alone.
-
-`-f` is required for a worktree that is locked or has modified or untracked
-files; without it, either is an error and nothing is removed. Since `git seed`
-locks `base`, removing the default worktree takes `-f` on purpose.
-
-The project root is printed on stdout, which is where you want to be if you
-just removed the worktree you were standing in:
-
-```sh
-cd "$(git wt-clip wt1)"
-```
-
-#### `-k`: keep the worktree, clip off its branch
+The counterpart to `git wt-bud`, taking a name the same way. Nothing is
+removed — removing a worktree is `git worktree remove`, which already does
+that job.
 
 A branch can only be checked out in one worktree at a time, so a worktree
 sitting idle on a branch holds that branch hostage: you can't check it out
@@ -222,38 +212,20 @@ elsewhere and you can't delete it. Removing the worktree frees the branch, but
 it also throws away that worktree's `node_modules`, its `.venv`, its `.env` —
 every slow thing `git wt-setup` did, which you then pay for again.
 
-`-k` clips off the branch instead of the worktree. It detaches HEAD, so the
-worktree keeps no branch checked out while the directory and everything in it
-stays exactly where it is:
+So clip detaches HEAD instead. The worktree keeps no branch checked out while
+the directory and everything in it stays exactly where it is:
 
 ```sh
-git wt-clip -k wt1       # wt1 keeps its files; its branch is free
+git wt-clip wt1          # wt1 keeps its files; its branch is free
 git branch -d feature    # ...so this now works
 git wt-bud wt1 main feature
 ```
-
-The detach point defaults to the project's default branch, read from the bare
-repo's `HEAD` so repos on `main` and repos on `master` both work without being
-told which. `-b` overrides it with any commit-ish, and only means anything
-alongside `-k`.
-
-Under `-k`, `-f` covers modified or untracked files and discards them; a lock is
-irrelevant, since nothing is being removed. Files a setup hook drops in don't
-count as long as they're excluded — see
-[design_decisions.md](design_decisions.md#keeping-files-next-to-the-hook).
-
-Two things differ from a removal, because the worktree survives. Stdout is the
-worktree's own path rather than the project root — there's no need to `cd` out
-of a directory that still exists. And a worktree that isn't there is an error
-rather than a no-op: there is nothing to keep. Clipping the branch off a
-worktree that already has a detached HEAD is a no-op that prints the path and
-exits 0.
 
 The branch that was clipped off is reported with its short SHA, which is what
 you need if you delete it and later want it back:
 
 ```
-$ git wt-clip -k wt1
+$ git wt-clip wt1
 Worktree /home/you/code/project_a/wt1 kept; branch 'feature' (ff74ab3) is free.
   delete it:   git branch -d feature
   put it back: git wt-bud wt1 feature
@@ -261,6 +233,54 @@ Worktree /home/you/code/project_a/wt1 kept; branch 'feature' (ff74ab3) is free.
 
 `git worktree list` is how you see which worktrees are parked; they show up as
 `(detached HEAD)`.
+
+#### Where it parks
+
+At `origin/<default branch>` — the latest commit on mainline, fetched first
+unless `-n` says not to. In this layout the local default branch is usually the
+stale copy: a plain fetch updates `refs/remotes/origin/*` and nothing pulls the
+bare repo's own branches. Which branch is the default is read from the bare
+repo's `HEAD`, so repos on `main` and repos on `master` both work without being
+told which. `-b` overrides the target with any commit-ish.
+
+Re-running the command is how a parked worktree moves forward. A detached HEAD
+is a commit rather than a ref, so it never advances on its own — fetching
+`origin/main` a hundred times leaves a parked worktree exactly where it stood
+the day it was clipped:
+
+```
+$ git wt-clip wt1
+Worktree /home/you/code/project_a/wt1 moved: 3a4f2c1 -> 9b2e105 (origin/main).
+```
+
+That also means a worktree parked deliberately with `-b`, at a release tag or
+an older commit, gets pulled onto mainline by a bare `git wt-clip`. Clip always
+does what it says; `-b` is how you park it back.
+
+A worktree already parked at the commit it would be moved to is a no-op that
+prints the path and exits 0, so re-running this is safe.
+
+#### Arguments
+
+`-n` skips the fetch, for callers that already did one — a lazygit binding that
+fetches first, a loop over several worktrees — so the network is paid for once
+rather than once per call.
+
+`-f` covers modified or untracked files and discards them; without it, either
+one is an error and nothing changes. A lock is irrelevant, since nothing is
+being removed: the `base` worktree `git seed` locks parks like any other. Files
+a setup hook drops in don't count as long as they're excluded — see
+[design_decisions.md](design_decisions.md#keeping-files-next-to-the-hook).
+
+`<worktree_name>` is optional. Without it, clip acts on the worktree you're
+standing in, the same default `git wt-setup` uses. A worktree that isn't there
+is an error rather than a no-op: there is nothing to clip.
+
+The worktree's own path is printed on stdout:
+
+```sh
+cd "$(git wt-clip wt1)"
+```
 
 ### `git wt-setup`
 
@@ -309,70 +329,11 @@ executable is an error rather than an absent hook.
 like a `.env` or a local config override, with the hook copying or symlinking
 them in. See [design_decisions.md](design_decisions.md#keeping-files-next-to-the-hook).
 
-### `git wt-sync`
-
-```
-git wt-sync [-n] [-f] [<worktree_name>]                  # sync to the default branch
-git wt-sync [-n] [-f] -b <commit-ish> [<worktree_name>]  # re-park somewhere else
-```
-
-```sh
-git wt-sync         # sync the worktree you're standing in
-git wt-sync wt1     # sync <project_root>/wt1
-git wt-sync -n wt1  # no fetch; something else already did one
-```
-
-`git wt-clip -k` parks a worktree by detaching its HEAD at the default branch,
-and a detached HEAD is a commit rather than a ref — it never moves again on its
-own. Fetching `origin/main` a hundred times leaves a parked worktree exactly
-where it stood the day it was clipped. This is the command that moves it
-forward.
-
-One worktree: the one you name, or the one you're standing in when you name
-nothing, the same default `git wt-setup` uses. Nothing else in the project is
-touched.
-
-It syncs to `origin/<default branch>`, not the local one. In this layout the
-local default branch is usually the stale copy: a plain fetch updates
-`refs/remotes/origin/*` and nothing pulls the bare repo's own branches.
-
-```
-$ git wt-sync wt1
-Worktree /home/you/code/project_a/wt1 synced: 3a4f2c1 -> 9b2e105 (origin/main).
-```
-
-A worktree with a branch checked out is live work, so it's reported and left
-alone — `git wt-bud` and `git pull` are the commands for those. That plus
-"already up to date" are the two no-ops, and both exit 0, so re-running this is
-safe and pointing it at live work by mistake isn't a failure:
-
-```
-$ git wt-sync
-Worktree /home/you/code/project_a/base is on branch 'main', not parked; nothing to sync.
-```
-
-Refusing to move a worktree *is* an error. A worktree is only ever advanced
-along the target's own history, so one deliberately parked at a release tag
-with `git wt-clip -k -b` stays put:
-
-```
-$ git wt-sync wt2
-Error: /home/you/code/project_a/wt2 is parked at 7c13d80, which is not on origin/main
-Use -b origin/main to move it there anyway.
-```
-
-`-f` discards a dirty worktree's files the way it does in `git wt-bud` and
-`git wt-clip`, and `-b` re-parks somewhere else — which is also the only way to
-move a worktree that is *already* parked, since `git wt-clip -k` on a worktree
-with no branch is a no-op.
-
 ## Completions
 
 `completions/` holds zsh and bash completions: `git wt-bud` completes the
-`<branch>` argument, and all four commands complete the repo's worktrees.
-`git wt-clip -k` narrows its list to worktrees that still have a branch to clip
-off, `git wt-sync` narrows its list the other way, to the parked ones it can
-act on, and under zsh `git wt-bud` groups the parked worktrees first, since
+`<branch>` argument, and all three `wt-` commands complete the repo's
+worktrees. Under zsh `git wt-bud` groups the parked worktrees first, since
 those are the ones waiting for a branch.
 
 ```
