@@ -441,6 +441,15 @@ that is what a branch is, and a branch is the one thing a parked worktree must
 not hold. So the update has to be an action someone takes, which is
 [`git wt-sync`](README.md#git-wt-sync).
 
+It syncs one worktree -- the one named, or the one the caller is standing in,
+the same default [`wt-setup`](#why-wt-setup-is-a-separate-command) uses. A
+sweep over every parked worktree in the project is the obvious alternative and
+the wrong one: it moves directories nobody was looking at, on the strength of a
+single keystroke, and the thing being moved is a working tree rather than a
+ref. Naming one worktree, or standing in it, is a small enough price for
+knowing what a run is going to touch. Syncing several is a loop in a shell,
+which is where a loop belongs.
+
 It targets `origin/<default branch>` where `wt-clip -k` prefers the local one,
 and the inversion is deliberate. Clip parks at the default branch *as this repo
 knows it*; sync exists to chase upstream, and in this layout `refs/heads/main`
@@ -448,12 +457,20 @@ is the stale copy -- a fetch writes `refs/remotes/origin/*` and nothing pulls
 the bare repo's own branches, so a local `main` only moves if some worktree
 checks it out and pulls.
 
-Sync only fast-forwards. A parked worktree is advanced when its commit is an
-ancestor of the target and skipped otherwise, which is what keeps `-b` honest:
-a worktree parked on a release tag was parked there on purpose, and a command
+Sync only fast-forwards. A worktree is advanced when its commit is an ancestor
+of the target and refused otherwise, which is what keeps `-b` honest: a
+worktree parked on a release tag was parked there on purpose, and a command
 that quietly moved it to mainline would make `-b` untrustworthy. The rule
 misses a tag that sits on mainline's own history -- it is an ancestor like any
 other commit -- and `-b` is the way back.
+
+Refusing is an error; the two no-ops are not. A worktree already at the target,
+and one on a branch rather than parked, both exit 0: the first is what
+re-running looks like, and the second is what pointing the command at live work
+by mistake looks like. Neither is worth failing over, and both print the path
+like every other command here. A worktree this command *won't* move -- parked
+off mainline, or dirty without `-f` -- exits 128 having changed nothing, the
+same line `wt-bud` and `wt-clip` draw.
 
 `git wt-sync -b` is also the only way to move a worktree that is already
 parked. `git wt-clip -k` won't: clipping the branch off a worktree that has no

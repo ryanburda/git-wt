@@ -34,8 +34,8 @@ project/
 | `git seed` | Clone a repo and grow its first worktree in one step |
 | `git wt-bud` | Put a branch in a worktree, growing the worktree if needed |
 | `git wt-clip` | Clip a worktree off, or with `-k` clip off only its branch |
+| `git wt-sync` | Bring a parked worktree up to date with the default branch |
 | `git wt-setup` | Run a project's `.wt-setup/setup` hook in a worktree |
-| `git wt-sync` | Bring parked worktrees up to date with the default branch |
 
 `git wt-clip -k` is how you put a worktree on ice without tearing it down. A
 worktree holds its branch hostage since a branch can only exist in one
@@ -51,10 +51,10 @@ git wt-bud wt1 main feature     # months later, back to work in wt1
 
 A parked worktree is frozen at the commit it was clipped at — a detached HEAD
 is a commit, not a ref, so fetching never moves it. `git wt-sync` is what
-brings them all forward:
+brings one forward:
 
 ```sh
-git wt-sync                     # fetch, then advance every parked worktree
+git wt-sync wt1                 # fetch, then advance wt1 to mainline
 ```
 
 See the [design_decisions](design_decisions.md) doc for implementation
@@ -312,50 +312,59 @@ them in. See [design_decisions.md](design_decisions.md#keeping-files-next-to-the
 ### `git wt-sync`
 
 ```
-git wt-sync [-n] [-f]                                  # sync every parked worktree
-git wt-sync [-n] [-f] <worktree_name>                  # sync one of them
-git wt-sync [-n] [-f] -b <commit-ish> <worktree_name>  # re-park one somewhere else
+git wt-sync [-n] [-f] [<worktree_name>]                  # sync to the default branch
+git wt-sync [-n] [-f] -b <commit-ish> [<worktree_name>]  # re-park somewhere else
 ```
 
 ```sh
-git wt-sync             # fetch, then advance every parked worktree
-git wt-sync wt1         # just wt1
-git wt-sync -n          # no fetch; something else already did one
+git wt-sync         # sync the worktree you're standing in
+git wt-sync wt1     # sync <project_root>/wt1
+git wt-sync -n wt1  # no fetch; something else already did one
 ```
 
 `git wt-clip -k` parks a worktree by detaching its HEAD at the default branch,
 and a detached HEAD is a commit rather than a ref — it never moves again on its
-own. Fetching `origin/main` a hundred times leaves every parked worktree
-exactly where it stood the day it was clipped. This is the command that moves
-them forward.
+own. Fetching `origin/main` a hundred times leaves a parked worktree exactly
+where it stood the day it was clipped. This is the command that moves it
+forward.
+
+One worktree: the one you name, or the one you're standing in when you name
+nothing, the same default `git wt-setup` uses. Nothing else in the project is
+touched.
 
 It syncs to `origin/<default branch>`, not the local one. In this layout the
 local default branch is usually the stale copy: a plain fetch updates
 `refs/remotes/origin/*` and nothing pulls the bare repo's own branches.
 
-Only parked worktrees are touched. One with a branch checked out is live work,
-so it is reported and left alone — `git wt-bud` and `git pull` are the commands
-for those. And a parked worktree is only ever advanced along the target's own
-history, so one deliberately parked at a release tag with `git wt-clip -k -b`
-is reported and stepped over rather than dragged to mainline:
+```
+$ git wt-sync wt1
+Worktree /home/you/code/project_a/wt1 synced: 3a4f2c1 -> 9b2e105 (origin/main).
+```
+
+A worktree with a branch checked out is live work, so it's reported and left
+alone — `git wt-bud` and `git pull` are the commands for those. That plus
+"already up to date" are the two no-ops, and both exit 0, so re-running this is
+safe and pointing it at live work by mistake isn't a failure:
 
 ```
 $ git wt-sync
-Syncing to origin/main (9b2e105):
-  wt1: 3a4f2c1 -> 9b2e105 (origin/main)
-  wt2: skipped, parked at 7c13d80, which is not on origin/main
-      move it anyway with: git wt-sync -b origin/main wt2
-  wt3: skipped, modified or untracked files
-      commit or clean them, or re-run with -f to discard them
-Synced 1 of 3 parked worktrees, 2 skipped.
+Worktree /home/you/code/project_a/base is on branch 'main', not parked; nothing to sync.
 ```
 
-Skipping isn't failure: the rest are still synced and the command exits 0. Only
-a checkout that actually fails makes it exit non-zero. `-f` discards a dirty
-worktree's files the way it does in `git wt-bud` and `git wt-clip`, and `-b`
-re-parks one worktree somewhere else — which is also the only way to move a
-worktree that is *already* parked, since `git wt-clip -k` on a worktree with no
-branch is a no-op.
+Refusing to move a worktree *is* an error. A worktree is only ever advanced
+along the target's own history, so one deliberately parked at a release tag
+with `git wt-clip -k -b` stays put:
+
+```
+$ git wt-sync wt2
+Error: /home/you/code/project_a/wt2 is parked at 7c13d80, which is not on origin/main
+Use -b origin/main to move it there anyway.
+```
+
+`-f` discards a dirty worktree's files the way it does in `git wt-bud` and
+`git wt-clip`, and `-b` re-parks somewhere else — which is also the only way to
+move a worktree that is *already* parked, since `git wt-clip -k` on a worktree
+with no branch is a no-op.
 
 ## Completions
 

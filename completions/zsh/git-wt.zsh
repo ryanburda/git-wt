@@ -29,6 +29,6 @@ zstyle ':completion:*:*:git:*' user-commands \
     wt-bud:'put a branch in a worktree, growing the worktree if needed' \
     wt-clip:'clip a worktree off, or with -k clip off only its branch' \
     wt-setup:'run the project .wt-setup/setup hook in a worktree' \
-    wt-sync:'bring parked worktrees up to date with the default branch'
+    wt-sync:'bring a parked worktree up to date with the default branch'
 
 unset _git_wt_root

@@ -4,24 +4,27 @@ set -e
 usage() {
     cat >&2 <<'EOF'
 Usage:
-  git wt-sync [-n] [-f]                                  # sync every parked worktree
-  git wt-sync [-n] [-f] <worktree_name>                  # sync one of them
-  git wt-sync [-n] [-f] -b <commit-ish> <worktree_name>  # re-park one somewhere else
+  git wt-sync [-n] [-f] [<worktree_name>]                 # sync to the default branch
+  git wt-sync [-n] [-f] -b <commit-ish> [<worktree_name>] # re-park somewhere else
 
-Bring parked worktrees up to date with the project's default branch.
+Bring a parked worktree up to date with the project's default branch.
 
 `git wt-clip -k` parks a worktree by detaching its HEAD at the default branch.
 A detached HEAD is a commit, not a ref, so it never moves again on its own:
-fetching origin a hundred times leaves every parked worktree exactly where it
-stood the day it was clipped. This is the command that moves them forward.
+fetching origin a hundred times leaves a parked worktree exactly where it stood
+the day it was clipped. This is the command that moves it forward.
 
   git wt-clip -k wt1     # parks wt1 at mainline as it was that day
   ...weeks of upstream commits...
-  git wt-sync            # wt1 is at mainline again
+  git wt-sync wt1        # wt1 is at mainline again
 
-Only parked worktrees are touched. A worktree with a branch checked out is live
-work, and syncing it would be a checkout nobody asked for, so it is reported and
-left alone. `git wt-bud` and `git pull` are the commands for those.
+One worktree, the one you name -- or the one you are standing in when you name
+nothing, the same way `git wt-setup` picks its worktree. Nothing else in the
+project is touched.
+
+A worktree with a branch checked out is live work, not something parked and
+forgotten. Syncing it would be a checkout nobody asked for, so it is reported
+and left alone; `git wt-bud` and `git pull` are the commands for those.
 
 What "up to date" means:
   origin/<default branch>, not the local one. In this layout the local default
@@ -36,11 +39,11 @@ What "up to date" means:
   being told which.
 
 Only fast-forwards:
-  A parked worktree is advanced only when its current commit is an ancestor of
-  the target -- when it is behind mainline and nothing else. A worktree parked
-  somewhere deliberate with `git wt-clip -k -b`, at a release tag or an older
-  commit, is off mainline, so sync reports it and steps over it rather than
-  dragging it to main behind your back.
+  The worktree is advanced only when its current commit is an ancestor of the
+  target -- when it is behind mainline and nothing else. One parked somewhere
+  deliberate with `git wt-clip -k -b`, at a release tag or an older commit, is
+  off mainline, and moving it to main is not a thing this command will do
+  quietly. It says so and changes nothing; -b is how you override it.
 
   The case this doesn't catch is a tag sitting on mainline's own history: that
   is an ancestor, so it gets advanced like anything else. -b puts it back.
@@ -48,44 +51,50 @@ Only fast-forwards:
 Arguments:
   -n               No fetch. Sync against the refs already in the repo. Use it
                    when something else just fetched -- a lazygit binding that
-                   runs its own fetch first, a loop over several repos -- so the
-                   network is paid for once rather than once per call.
-  -f               Force. Syncs a parked worktree that has modified or untracked
-                   files, discarding them. Without it such a worktree is skipped
-                   rather than clobbered.
-  -b <commit-ish>  Re-park <worktree_name> here instead of at the default
-                   branch, and skip the fast-forward check: naming a commit is
-                   saying you mean it. Requires <worktree_name>, since parking
-                   every worktree in the project on one tag is not a thing
-                   anyone wants. This is also the only way to move a worktree
-                   that is already parked -- `git wt-clip -k -b` won't, because
-                   clipping the branch off a worktree that has none is a no-op.
+                   runs its own fetch first, a loop over several worktrees --
+                   so the network is paid for once rather than once per call.
+  -f               Force. Syncs a worktree that has modified or untracked
+                   files, discarding them. Without it, either one is an error
+                   and nothing is changed.
+  -b <commit-ish>  Re-park here instead of at the default branch, and skip the
+                   fast-forward check: naming a commit is saying you mean it.
+                   This is also the only way to move a worktree that is already
+                   parked -- `git wt-clip -k -b` won't, because clipping the
+                   branch off a worktree that has none is a no-op.
   -h               Print this help and exit.
-  <worktree_name>  Optional. A directory name, not a path, joined onto the
-                   project root the same way `git wt-bud` and `git wt-clip` join
-                   it, so the same command works from any worktree or nested
-                   subdirectory. Without it, every parked worktree in the
-                   project is synced.
+  <worktree_name>  Optional. A directory name, not a path. It is joined onto
+                   the project root derived from the bare repo's location, the
+                   same way `git wt-bud` and `git wt-clip` join it, so the same
+                   command from a nested subdirectory or another worktree syncs
+                   the same worktree. Names containing "/", and "." and "..",
+                   are rejected: only direct children of the project root are
+                   worktrees this command knows how to sync. A trailing "/" is
+                   ignored, so a name completed as a directory works.
+
+                   Without it, the worktree containing the current directory,
+                   which is what makes the bare `git wt-sync` useful from a
+                   tool that already sits in one.
 
 Returns:
-  A line per parked worktree on stderr saying what happened to it, and a summary
-  when more than one was considered. Nothing to sync is success, not an error: a
-  project with no parked worktrees, or one where they are all current, exits 0.
+  Prints the worktree's path, so the usual form works:
 
-  Skipping is not failure either. A dirty worktree, or one parked off mainline,
-  is reported and stepped over, and the rest are still synced. Only a checkout
-  that actually fails makes the command exit non-zero.
+    cd "$(git wt-sync wt1)"
 
-  On stdout: the worktree's path when one was named, so
-  `cd "$(git wt-sync wt1)"` works the way it does with `git wt-bud`; otherwise
-  the project root.
+  A worktree that is already at the target, and one that is on a branch rather
+  than parked, are both no-ops that still print the path and exit 0: re-running
+  this is safe, and pointing it at live work by mistake is not an error worth
+  failing over.
+
+  Refusing to move a worktree is an error, not a no-op. A worktree parked off
+  mainline, and one with modified or untracked files and no -f, both exit 128
+  having changed nothing.
 
 Examples:
-  git wt-sync                # fetch, then advance every parked worktree
-  git wt-sync wt1            # just wt1
-  git wt-sync -n             # no fetch; something else already did one
-  git wt-sync -f wt1         # discard wt1's leftover files and sync it
-  git wt-sync -b v2.1 wt1    # park wt1 on the v2.1 tag instead
+  git wt-sync              # sync the worktree you're standing in
+  git wt-sync wt1          # sync $root_path/wt1
+  git wt-sync -n wt1       # no fetch; something else already did one
+  git wt-sync -f wt1       # discard wt1's leftover files and sync it
+  git wt-sync -b v2.1 wt1  # park wt1 on the v2.1 tag instead
 EOF
 }
 
@@ -112,15 +121,6 @@ fi
 
 WORKTREE_NAME=${1:-}
 
-# -b names one parking spot, and one parking spot only makes sense for one
-# worktree. Spread across every parked worktree in the project it would put
-# them all on the same commit, which is never what anyone means.
-if [[ -n "$TARGET_OVERRIDE" && -z "$WORKTREE_NAME" ]]; then
-    echo "Error: -b requires <worktree_name>" >&2
-    usage
-    exit 129
-fi
-
 if [[ -n "$WORKTREE_NAME" ]]; then
     # Shell completion on a directory hands you "wt1/". That names the same
     # worktree, so trim trailing slashes rather than rejecting them below.
@@ -131,7 +131,7 @@ if [[ -n "$WORKTREE_NAME" ]]; then
     # Joined onto the project root, so it has to be a single path segment, for
     # the same reason `git wt-bud` and `git wt-clip` require one: every worktree
     # in this layout is a direct child of the project root. ".git" is the bare
-    # repo itself, which is never a worktree to sync.
+    # repo itself, which has no working tree to sync.
     case "$WORKTREE_NAME" in
         */*)
             echo "Error: <worktree_name> must be a directory name, not a path: '${WORKTREE_NAME}'" >&2
@@ -152,8 +152,6 @@ fi
 BARE_DIR=$(cd "$(git rev-parse --git-common-dir)" && pwd)
 PROJECT_ROOT="${BARE_DIR%/.git}"
 
-# Work out what to sync before fetching, so a typo'd name fails immediately
-# rather than after a trip to the network.
 if [[ -n "$WORKTREE_NAME" ]]; then
     WORKTREE_PATH="${PROJECT_ROOT}/${WORKTREE_NAME}"
 
@@ -169,49 +167,40 @@ if [[ -n "$WORKTREE_NAME" ]]; then
     fi
 
     # Registered but not on disk. git keeps the metadata under .git/worktrees/
-    # until something prunes it, so the listing above still reports it. Every
-    # git command aimed at it fails, so stop here rather than letting three
-    # `fatal: cannot change to ...` lines out.
+    # until something prunes it, so the listing above still reports it, while
+    # every git command aimed at it fails. Stop here rather than letting a
+    # `fatal: cannot change to ...` out.
     if [[ ! -d "$WORKTREE_PATH" ]]; then
         echo "Error: ${WORKTREE_PATH} is registered but its directory is missing" >&2
         echo "Run 'git worktree prune' to clear it, or 'git wt-bud' to grow it back." >&2
         exit 128
     fi
-
-    # A worktree on a branch is live work, not something parked and forgotten.
-    # Selecting one by mistake in a panel is a misclick, not a misconfiguration,
-    # so say what it is and succeed rather than raising an error over it.
-    CURRENT_BRANCH=$(git -C "$WORKTREE_PATH" branch --show-current)
-    if [[ -n "$CURRENT_BRANCH" ]]; then
-        echo "Worktree ${WORKTREE_PATH} is on branch '${CURRENT_BRANCH}', not parked; nothing to sync." >&2
-        echo "$WORKTREE_PATH"
-        exit 0
-    fi
-
-    TARGETS=("$WORKTREE_PATH")
 else
-    # Every worktree with a detached HEAD: that is what parked looks like from
-    # the outside. The bare repo carries its own "bare" line and is skipped --
-    # it is not a worktree, and it has no working tree to update.
-    TARGETS=(${(f)"$(git worktree list --porcelain | awk '
-        /^worktree /{path = substr($0, 10); bare = 0; detached = 0}
-        /^bare$/{bare = 1}
-        /^detached$/{detached = 1}
-        /^$/{if (path != "" && !bare && detached) print path; path = ""}
-        END{if (path != "" && !bare && detached) print path}
-    ')"})
-    TARGETS=(${TARGETS:#})
-
-    if (( ${#TARGETS} == 0 )); then
-        echo "No parked worktrees in ${PROJECT_ROOT}; nothing to sync." >&2
-        echo "$PROJECT_ROOT"
-        exit 0
+    # No name: the worktree the caller is standing in, the same default
+    # `git wt-setup` uses. The project root itself is not one -- it holds the
+    # bare repo, which has no working tree -- so say so rather than letting
+    # git's own "must be run in a work tree" out.
+    if ! WORKTREE_PATH=$(git rev-parse --show-toplevel 2>/dev/null); then
+        echo "Error: not inside a worktree (the project root holds the bare repo)" >&2
+        echo "Name the worktree to sync: git wt-sync <worktree_name>" >&2
+        exit 128
     fi
+fi
+
+# A worktree on a branch is live work, not something parked and forgotten.
+# Landing on one by mistake -- a panel selection, a bare `git wt-sync` run from
+# the wrong directory -- is a misclick, not a misconfiguration, so say what it
+# is and succeed rather than raising an error over it.
+CURRENT_BRANCH=$(git -C "$WORKTREE_PATH" branch --show-current)
+if [[ -n "$CURRENT_BRANCH" ]]; then
+    echo "Worktree ${WORKTREE_PATH} is on branch '${CURRENT_BRANCH}', not parked; nothing to sync." >&2
+    echo "$WORKTREE_PATH"
+    exit 0
 fi
 
 # Fetching is the whole point -- a sync against refs nobody refreshed is just a
 # slower no-op -- but it is the one step that can fail for reasons that have
-# nothing to do with this repo. Being offline should not stop the worktrees from
+# nothing to do with this repo. Being offline should not stop the worktree from
 # advancing to the newest commit already on disk.
 if (( ! NO_FETCH )); then
     if ! git -C "$BARE_DIR" remote get-url origin > /dev/null 2>&1; then
@@ -225,12 +214,12 @@ if [[ -n "$TARGET_OVERRIDE" ]]; then
     TARGET_NAME=$TARGET_OVERRIDE
 else
     # HEAD is per-worktree, so the default branch has to be read from the common
-    # dir: the current worktree's HEAD names whatever it happens to be on.
+    # dir: this worktree's HEAD is detached, which is the one thing it can't be.
     DEFAULT_BRANCH=$(git -C "$BARE_DIR" symbolic-ref --short HEAD 2>/dev/null || true)
 
     if [[ -z "$DEFAULT_BRANCH" ]]; then
         echo "Error: could not read the project's default branch from ${BARE_DIR}" >&2
-        echo "Pass -b <commit-ish> with a worktree name to sync one explicitly." >&2
+        echo "Pass -b <commit-ish> to say where to sync to." >&2
         exit 128
     fi
 
@@ -245,6 +234,7 @@ else
         TARGET_NAME=$DEFAULT_BRANCH
     else
         echo "Error: default branch '${DEFAULT_BRANCH}' has no origin or local ref" >&2
+        echo "Pass -b <commit-ish> to say where to sync to." >&2
         exit 128
     fi
 fi
@@ -255,104 +245,55 @@ if ! TARGET_SHA=$(git -C "$BARE_DIR" rev-parse --verify --quiet "${TARGET_NAME}^
 fi
 TARGET_SHORT=$(git -C "$BARE_DIR" rev-parse --short "$TARGET_SHA")
 
-# 0 advanced, 1 skipped, 2 failed. Nothing in here exits: one bad worktree is
-# not a reason to leave the rest of them stale.
-sync_worktree() {
-    local wt_path=$1
-    local label=${wt_path:t}
-    local current_sha current_short
+CURRENT_SHA=$(git -C "$WORKTREE_PATH" rev-parse HEAD)
+CURRENT_SHORT=$(git -C "$WORKTREE_PATH" rev-parse --short HEAD)
 
-    # See the named form above: a pruned-but-not-yet-forgotten worktree is still
-    # in the listing, and nothing can be run inside it.
-    if [[ ! -d "$wt_path" ]]; then
-        echo "  ${label}: skipped, directory is missing (run: git worktree prune)" >&2
-        return 1
-    fi
-
-    current_sha=$(git -C "$wt_path" rev-parse HEAD)
-    current_short=$(git -C "$wt_path" rev-parse --short HEAD)
-
-    if [[ "$current_sha" == "$TARGET_SHA" ]]; then
-        echo "  ${label}: already at ${TARGET_NAME} (${TARGET_SHORT})" >&2
-        return 1
-    fi
-
-    # Advance only along the target's own history. A worktree parked off
-    # mainline was parked there on purpose, and hauling it to main is the one
-    # thing sync must never do by itself. -b means the caller named the commit,
-    # so the check doesn't apply.
-    if [[ -z "$TARGET_OVERRIDE" ]] \
-        && ! git -C "$wt_path" merge-base --is-ancestor "$current_sha" "$TARGET_SHA"; then
-        echo "  ${label}: skipped, parked at ${current_short}, which is not on ${TARGET_NAME}" >&2
-        echo "      move it anyway with: git wt-sync -b ${TARGET_NAME} ${label}" >&2
-        return 1
-    fi
-
-    # Same rule as `git wt-bud` and `git wt-clip`: uncommitted work is never
-    # discarded without -f. `status --porcelain` counts staged, modified, and
-    # untracked-but-not-ignored files, so the files a setup hook drops in stay
-    # out of it as long as they are excluded -- see design_decisions.md on
-    # .git/info/exclude.
-    if [[ -n "$(git -C "$wt_path" status --porcelain)" ]]; then
-        if (( ! FORCE )); then
-            echo "  ${label}: skipped, modified or untracked files" >&2
-            echo "      commit or clean them, or re-run with -f to discard them" >&2
-            return 1
-        fi
-        echo "  ${label}: discarding modified and untracked files" >&2
-        # Untracked files first: --force covers local modifications, and
-        # clearing the untracked ones beforehand keeps the checkout from
-        # tripping over a file the target commit also wants to write.
-        git -C "$wt_path" clean -fd > /dev/null
-    fi
-
-    local checkout_args=(--detach)
-    (( FORCE )) && checkout_args=(--force --detach)
-
-    # The resolved SHA rather than the ref name, so every worktree in one run
-    # lands on the same commit even if origin moves underneath us. The advice
-    # is off because a detached HEAD is the expected state here, not a warning.
-    if ! git -C "$wt_path" -c advice.detachedHead=false \
-        checkout --quiet "${checkout_args[@]}" "$TARGET_SHA" >&2; then
-        echo "  ${label}: FAILED to check out ${TARGET_NAME}" >&2
-        return 2
-    fi
-
-    echo "  ${label}: ${current_short} -> ${TARGET_SHORT} (${TARGET_NAME})" >&2
-    return 0
-}
-
-SYNCED=0
-SKIPPED=0
-FAILED=0
-
-echo "Syncing to ${TARGET_NAME} (${TARGET_SHORT}):" >&2
-
-for wt in "${TARGETS[@]}"; do
-    rc=0
-    sync_worktree "$wt" || rc=$?
-    case $rc in
-        0) (( ++SYNCED )) ;;
-        1) (( ++SKIPPED )) ;;
-        *) (( ++FAILED )) ;;
-    esac
-done
-
-# One worktree already reported its own outcome in full; a count underneath it
-# would just be that line again.
-if (( ${#TARGETS} > 1 )); then
-    SUMMARY="Synced ${SYNCED} of ${#TARGETS} parked worktrees"
-    (( SKIPPED )) && SUMMARY+=", ${SKIPPED} skipped"
-    (( FAILED )) && SUMMARY+=", ${FAILED} failed"
-    echo "${SUMMARY}." >&2
+# Already there. Re-running after a fetch that brought nothing new is the
+# normal case, not an error: report it, print the path, and exit 0.
+if [[ "$CURRENT_SHA" == "$TARGET_SHA" ]]; then
+    echo "Worktree ${WORKTREE_PATH} is already at ${TARGET_NAME} (${TARGET_SHORT}), skipping." >&2
+    echo "$WORKTREE_PATH"
+    exit 0
 fi
 
-if (( FAILED )); then
+# Advance only along the target's own history. A worktree parked off mainline
+# was parked there on purpose, and hauling it to main is the one thing sync
+# must never do by itself -- it would make `git wt-clip -k -b` untrustworthy.
+# -b means the caller named the commit, so the check doesn't apply.
+if [[ -z "$TARGET_OVERRIDE" ]] \
+    && ! git -C "$WORKTREE_PATH" merge-base --is-ancestor "$CURRENT_SHA" "$TARGET_SHA"; then
+    echo "Error: ${WORKTREE_PATH} is parked at ${CURRENT_SHORT}, which is not on ${TARGET_NAME}" >&2
+    echo "Use -b ${TARGET_NAME} to move it there anyway." >&2
     exit 128
 fi
 
-if [[ -n "$WORKTREE_NAME" ]]; then
-    echo "$WORKTREE_PATH"
-else
-    echo "$PROJECT_ROOT"
+# Refuse a dirty worktree without -f, the same as `git wt-bud` and
+# `git wt-clip`. `status --porcelain` counts staged, modified, and
+# untracked-but-not-ignored files, so the files a setup hook drops in stay out
+# of it as long as they are excluded -- see design_decisions.md on
+# .git/info/exclude.
+if [[ -n "$(git -C "$WORKTREE_PATH" status --porcelain)" ]]; then
+    if (( ! FORCE )); then
+        echo "Error: ${WORKTREE_PATH} has modified or untracked files" >&2
+        echo "Commit or clean them, or use -f to discard them." >&2
+        exit 128
+    fi
+    echo "Discarding modified and untracked files in ${WORKTREE_PATH}." >&2
+    # Untracked files first: --force covers local modifications, and clearing
+    # the untracked ones beforehand keeps the checkout from tripping over a
+    # file the target commit also wants to write.
+    git -C "$WORKTREE_PATH" clean -fd >&2
 fi
+
+CHECKOUT_ARGS=(--detach)
+(( FORCE )) && CHECKOUT_ARGS=(--force --detach)
+
+# The resolved SHA rather than the ref name, so what lands is what was reported
+# even if origin moves underneath us. The advice is off because a detached HEAD
+# is the expected state here, not something to warn about.
+git -C "$WORKTREE_PATH" -c advice.detachedHead=false \
+    checkout --quiet "${CHECKOUT_ARGS[@]}" "$TARGET_SHA" >&2
+
+echo "Worktree ${WORKTREE_PATH} synced: ${CURRENT_SHORT} -> ${TARGET_SHORT} (${TARGET_NAME})." >&2
+
+echo "$WORKTREE_PATH"
