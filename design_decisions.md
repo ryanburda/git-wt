@@ -427,6 +427,39 @@ clipped off, which is the one thing it can't be.
 `-b <commit-ish>` overrides the parking spot for the cases where mainline isn't
 what you want -- a release tag, an older commit the worktree is pinned to.
 
+### Why syncing is a separate command
+
+Parking at the default branch fixes where a worktree sits on the day it is
+clipped, and nothing moves it afterwards. A detached HEAD is a commit, not a
+ref: `refs/remotes/origin/main` advances on every fetch and the parked worktree
+stays exactly where it was. Come back in a month and the "parked at mainline"
+worktree is parked at last month's mainline.
+
+The tempting fix is to make `git wt-clip -k` resolve something that keeps
+moving, but there is nothing to resolve. Git has no symbolic detached HEAD --
+that is what a branch is, and a branch is the one thing a parked worktree must
+not hold. So the update has to be an action someone takes, which is
+[`git wt-sync`](README.md#git-wt-sync).
+
+It targets `origin/<default branch>` where `wt-clip -k` prefers the local one,
+and the inversion is deliberate. Clip parks at the default branch *as this repo
+knows it*; sync exists to chase upstream, and in this layout `refs/heads/main`
+is the stale copy -- a fetch writes `refs/remotes/origin/*` and nothing pulls
+the bare repo's own branches, so a local `main` only moves if some worktree
+checks it out and pulls.
+
+Sync only fast-forwards. A parked worktree is advanced when its commit is an
+ancestor of the target and skipped otherwise, which is what keeps `-b` honest:
+a worktree parked on a release tag was parked there on purpose, and a command
+that quietly moved it to mainline would make `-b` untrustworthy. The rule
+misses a tag that sits on mainline's own history -- it is an ancestor like any
+other commit -- and `-b` is the way back.
+
+`git wt-sync -b` is also the only way to move a worktree that is already
+parked. `git wt-clip -k` won't: clipping the branch off a worktree that has no
+branch is a no-op, by the rule above about not moving a parked worktree out
+from under whatever it is parked on.
+
 ### Why it doesn't delete the branch
 
 Freeing the branch is the point, and deleting it is the obvious next step, but

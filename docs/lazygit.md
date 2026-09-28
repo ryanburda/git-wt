@@ -3,14 +3,24 @@
 [lazygit](https://github.com/jesseduffield/lazygit) has a worktrees panel, and
 these commands are worktree-shaped, so they wire up as custom commands with no
 glue. The panel becomes the whole cycle: grow a worktree, prepare it, park it,
-remove it.
+keep it current, remove it.
+
+**Worktrees panel**
 
 | Key | Command | What it does |
 | --- | --- | --- |
 | `b` | `git wt-bud` | Prompts for worktree name, base branch, and an optional new branch |
 | `s` | `git wt-setup` | Runs the project's `.wt-setup/setup` hook in the selected worktree |
 | `c` | `git wt-clip -k` | Parks the selected worktree: keeps the directory, frees its branch |
+| `S` | `git wt-sync` | Fetches, then brings the selected parked worktree up to mainline |
 | `d` | *(built-in)* | Removes the worktree — lazygit already runs `git worktree remove` |
+
+**Local branches panel**
+
+| Key | Command | What it does |
+| --- | --- | --- |
+| `S` | `git wt-sync` | Fetches, then brings *every* parked worktree up to mainline |
+| `f` | *(built-in)* | Fast-forwards the selected branch from its upstream |
 
 There's deliberately no binding for plain `git wt-clip`. lazygit's own `d` does
 the same `git worktree remove`, so the only clip worth a key is `-k`, which
@@ -49,14 +59,24 @@ customCommands:
     context: 'worktrees'
     description: 'Clip the branch off the worktree, keeping the directory (wt-clip -k)'
     output: none
+  - key: 'S'
+    command: 'git wt-sync "$(basename "{{.SelectedWorktree.Path}}")"'
+    context: 'worktrees'
+    description: 'Bring the parked worktree up to date with the default branch (wt-sync)'
+    output: popup
+  - key: 'S'
+    command: 'git wt-sync'
+    context: 'localBranches'
+    description: 'Bring every parked worktree up to date with the default branch (wt-sync)'
+    output: popup
 ```
 
 ## Why it's written this way
 
-**`basename` on two of the three.** `git wt-bud` and `git wt-clip` take a
-worktree *name*, which they join onto the project root; `git wt-setup` takes a
-*path*. lazygit only offers `{{.SelectedWorktree.Path}}`, so the first two run
-it through `basename` and `wt-setup` uses it as-is.
+**`basename` on three of the four.** `git wt-bud`, `git wt-clip` and
+`git wt-sync` take a worktree *name*, which they join onto the project root;
+`git wt-setup` takes a *path*. lazygit only offers `{{.SelectedWorktree.Path}}`,
+so the first three run it through `basename` and `wt-setup` uses it as-is.
 
 `{{.SelectedWorktree.Name}}` looks like the tidier spelling, but `Name` is a
 method on lazygit's worktree model rather than a struct field, and `Path` is
@@ -95,9 +115,9 @@ Substring mode already matches space-separated fragments, so `feat auth` finds
 in every other panel too. lazygit moved the default away from fuzzy in 0.41
 because it matched too loosely, so try substring before changing it.
 
-**`output: popup` on `s` alone.** The other two have nothing to say on success,
-and `none` keeps them to a spinner and a refresh. `wt-setup` is the one command
-whose *silence* is a real result:
+**`output: popup` on `s`.** `b` and `c` have nothing to say on success, and
+`none` keeps them to a spinner and a refresh. `wt-setup` is the command whose
+*silence* is a real result:
 
 ```
 No setup hook at /home/you/code/project_a/.wt-setup/setup; nothing to do.
@@ -115,6 +135,40 @@ separate from `wt-bud` in the first place — so if you'd rather watch an
 `npm install` scroll, use `output: terminal`, or `output: logWithPty` together
 with `gui.showCommandLog: true`.
 
+**`S` in two panels, doing two things.** `wt-sync` with a name syncs that one
+worktree; with no argument it syncs all of them. The worktrees panel always has
+a worktree selected, so it gets the first form; the local branches panel has no
+worktree to select, so it gets the second. Same key, same command, and the
+panel you're standing in decides the scope.
+
+**Why not `f`.** `f` is the obvious mnemonic, and in the local branches panel
+it's already `fastForward` — lazygit fast-forwards the selected branch from its
+upstream without checking it out. That is the branch-level version of what
+`wt-sync` does for parked worktrees, so the two belong side by side rather than
+one shadowing the other. `S` is free in both panels, and your remotes panel may
+already use it for `git fetch -p`, which keeps the letter meaning roughly the
+same thing everywhere.
+
+**`output: popup` on both.** Like `wt-setup`, `wt-sync`'s report *is* its
+result — which worktrees moved, which were skipped and why:
+
+```
+Syncing to origin/main (9b2e105):
+  wt1: 3a4f2c1 -> 9b2e105 (origin/main)
+  wt2: skipped, parked at 7c13d80, which is not on origin/main
+  wt3: skipped, modified or untracked files
+Synced 1 of 3 parked worktrees, 2 skipped.
+```
+
+Under `output: none` a run where everything was skipped looks exactly like one
+where everything worked. Selecting a live worktree by mistake is the same
+story: `wt-sync` says the worktree is on a branch and exits 0, which you want
+to actually see.
+
+**No `-n`.** Both bindings fetch. `-n` exists for the case where something else
+just did — chaining `wt-sync` onto lazygit's own fetch key, or looping over
+several repos — and neither binding is that case.
+
 **Errors surface either way.** A non-zero exit returns an error to lazygit,
 which shows it in the usual error popup, so the guard rails — a dirty worktree,
 a locked worktree, an unknown ref — don't fail quietly under `output: none`.
@@ -130,4 +184,5 @@ the directory out from under the running instance.
 
 Neither `b` nor `c` passes `-f`, so a worktree with modified or untracked files
 is an error rather than a silent discard. Run the forced variant from a shell
-when you actually mean it.
+when you actually mean it. `S` doesn't pass `-f` either, but it skips such a
+worktree instead of failing, and still syncs the rest.

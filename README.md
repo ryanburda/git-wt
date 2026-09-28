@@ -35,6 +35,7 @@ project/
 | `git wt-bud` | Put a branch in a worktree, growing the worktree if needed |
 | `git wt-clip` | Clip a worktree off, or with `-k` clip off only its branch |
 | `git wt-setup` | Run a project's `.wt-setup/setup` hook in a worktree |
+| `git wt-sync` | Bring parked worktrees up to date with the default branch |
 
 `git wt-clip -k` is how you put a worktree on ice without tearing it down. A
 worktree holds its branch hostage since a branch can only exist in one
@@ -46,6 +47,14 @@ or delete while everything created by `git wt-setup` stays around.
 ```sh
 git wt-clip -k wt1              # park it; its branch is free to delete
 git wt-bud wt1 main feature     # months later, back to work in wt1
+```
+
+A parked worktree is frozen at the commit it was clipped at — a detached HEAD
+is a commit, not a ref, so fetching never moves it. `git wt-sync` is what
+brings them all forward:
+
+```sh
+git wt-sync                     # fetch, then advance every parked worktree
 ```
 
 See the [design_decisions](design_decisions.md) doc for implementation
@@ -300,13 +309,62 @@ executable is an error rather than an absent hook.
 like a `.env` or a local config override, with the hook copying or symlinking
 them in. See [design_decisions.md](design_decisions.md#keeping-files-next-to-the-hook).
 
+### `git wt-sync`
+
+```
+git wt-sync [-n] [-f]                                  # sync every parked worktree
+git wt-sync [-n] [-f] <worktree_name>                  # sync one of them
+git wt-sync [-n] [-f] -b <commit-ish> <worktree_name>  # re-park one somewhere else
+```
+
+```sh
+git wt-sync             # fetch, then advance every parked worktree
+git wt-sync wt1         # just wt1
+git wt-sync -n          # no fetch; something else already did one
+```
+
+`git wt-clip -k` parks a worktree by detaching its HEAD at the default branch,
+and a detached HEAD is a commit rather than a ref — it never moves again on its
+own. Fetching `origin/main` a hundred times leaves every parked worktree
+exactly where it stood the day it was clipped. This is the command that moves
+them forward.
+
+It syncs to `origin/<default branch>`, not the local one. In this layout the
+local default branch is usually the stale copy: a plain fetch updates
+`refs/remotes/origin/*` and nothing pulls the bare repo's own branches.
+
+Only parked worktrees are touched. One with a branch checked out is live work,
+so it is reported and left alone — `git wt-bud` and `git pull` are the commands
+for those. And a parked worktree is only ever advanced along the target's own
+history, so one deliberately parked at a release tag with `git wt-clip -k -b`
+is reported and stepped over rather than dragged to mainline:
+
+```
+$ git wt-sync
+Syncing to origin/main (9b2e105):
+  wt1: 3a4f2c1 -> 9b2e105 (origin/main)
+  wt2: skipped, parked at 7c13d80, which is not on origin/main
+      move it anyway with: git wt-sync -b origin/main wt2
+  wt3: skipped, modified or untracked files
+      commit or clean them, or re-run with -f to discard them
+Synced 1 of 3 parked worktrees, 2 skipped.
+```
+
+Skipping isn't failure: the rest are still synced and the command exits 0. Only
+a checkout that actually fails makes it exit non-zero. `-f` discards a dirty
+worktree's files the way it does in `git wt-bud` and `git wt-clip`, and `-b`
+re-parks one worktree somewhere else — which is also the only way to move a
+worktree that is *already* parked, since `git wt-clip -k` on a worktree with no
+branch is a no-op.
+
 ## Completions
 
 `completions/` holds zsh and bash completions: `git wt-bud` completes the
-`<branch>` argument, and all three commands complete the repo's worktrees.
+`<branch>` argument, and all four commands complete the repo's worktrees.
 `git wt-clip -k` narrows its list to worktrees that still have a branch to clip
-off, and under zsh `git wt-bud` groups the parked worktrees first, since those
-are the ones waiting for a branch.
+off, `git wt-sync` narrows its list the other way, to the parked ones it can
+act on, and under zsh `git wt-bud` groups the parked worktrees first, since
+those are the ones waiting for a branch.
 
 ```
 $ git wt-bud wt <TAB>

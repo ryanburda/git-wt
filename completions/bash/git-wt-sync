@@ -1,0 +1,89 @@
+# bash completion for `git wt-sync` and for the standalone
+# `git-wt-sync` command.
+#
+# git's own completion dispatches `git <sub-command>` to a function named
+# `_git_<sub_command>`, and asks bash-completion's lazy loader for a file named
+# `git-<sub-command>` when that function isn't defined yet. Naming this file
+# `git-wt-sync` and defining `_git_wt_sync` satisfies both.
+
+__git_wt_parked_worktree_names ()
+{
+	# Prefer git's own wrapper, which honors `git -C <dir>` and `--git-dir`.
+	local g=git
+	declare -f __git > /dev/null 2>&1 && g=__git
+
+	# Only parked worktrees: a detached HEAD is what `git wt-sync` acts on, and
+	# one with a branch checked out is reported and left alone. The bare repo
+	# is skipped -- it has no working tree to update. `git wt-sync` takes a
+	# name, not a path, so report the last path segment.
+	$g worktree list --porcelain 2> /dev/null | awk '
+		/^worktree /{wt = substr($0, 10); detached = 0; bare = 0}
+		/^bare$/{bare = 1}
+		/^detached$/{detached = 1}
+		/^$/{if (wt != "" && !bare && detached) print wt; wt = ""}
+		END{if (wt != "" && !bare && detached) print wt}
+	' | sed 's|.*/||'
+}
+
+__git_wt_sync_commit_ish ()
+{
+	local g=git
+	declare -f __git > /dev/null 2>&1 && g=__git
+
+	# Anywhere -b can re-park a worktree: local branches, remote branches with
+	# the remote name stripped, and tags.
+	{
+		$g for-each-ref --format='%(refname:short)' refs/heads refs/tags
+		$g for-each-ref --format='%(refname:strip=3)' refs/remotes
+	} 2> /dev/null | grep -vx HEAD | sort -u
+}
+
+_git_wt_sync ()
+{
+	local cur=${COMP_WORDS[COMP_CWORD]}
+	local prev=${COMP_WORDS[COMP_CWORD - 1]}
+	local i idx=0 args=0
+
+	# Find the sub-command so argument positions come out the same whether we
+	# were reached as `git wt-sync` or as `git-wt-sync`.
+	for ((i = 0; i < COMP_CWORD; i++)); do
+		case ${COMP_WORDS[i]} in
+		wt-sync | git-wt-sync | */git-wt-sync)
+			idx=$i
+			break
+			;;
+		esac
+	done
+
+	# -b takes an argument, so the word after it is a commit-ish, not the name.
+	if [[ $prev == -b ]]; then
+		COMPREPLY=($(compgen -W "$(__git_wt_sync_commit_ish)" -- "$cur"))
+		return
+	fi
+
+	if [[ $cur == -* ]]; then
+		COMPREPLY=($(compgen -W "-n -f -b -h" -- "$cur"))
+		return
+	fi
+
+	# [-n] [-f] [-b <commit-ish>] [<worktree_name>]: count only the non-option
+	# words before the cursor, skipping -b's argument, so the name completes
+	# whatever flags came first.
+	for ((i = idx + 1; i < COMP_CWORD; i++)); do
+		if [[ ${COMP_WORDS[i]} == -b ]]; then
+			((i++))
+			continue
+		fi
+		[[ ${COMP_WORDS[i]} == -* ]] || ((args++))
+	done
+
+	if ((args == 0)); then
+		COMPREPLY=($(compgen -W "$(__git_wt_parked_worktree_names)" -- "$cur"))
+	else
+		COMPREPLY=()
+	fi
+}
+
+# The `git wt-sync` form is dispatched by git's completion; this covers
+# running the command directly.
+complete -F _git_wt_sync git-wt-sync
