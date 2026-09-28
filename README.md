@@ -2,68 +2,74 @@
 
 *Git external commands for a worktree-first workflow.*
 
-Small wrappers around git that enforce one simple repo layout: a bare repo
-with every worktree as a direct sibling.
+Small wrappers around git that enforce a simple bare repo layout.
 
 ```sh
 # `git seed` is a worktree-first `git clone`. Just pass it a URL.
+git seed <url>
+
+# `git wt-add` creates a new worktree.
+git wt-add <worktree-name> <existing-branch> [<new-branch>]
+```
+
+Example usage:
+```sh
 git seed git@github.com:user/project.git
-
-# `git wt-add` puts a branch in a worktree, creating one if it isn't there yet.
-#
-# worktree name      (optional) new branch created off existing
-#           |          |
-#           v          v
+cd project
 git wt-add wt1 main feature
-#               ^
-#               |
-#         existing branch to check out
 ```
-
-Those two commands produce:
+The commands above produce the following repo layout:
 
 ```
-project/
-├── .git/        <- bare repo  (created by `git seed`)
-├── base/        <- worktree   (created by `git seed`)
-└── wt1/         <- worktree   (created by `git wt-add`)
+./project/
+├── .git/    <- bare repo              (created by `git seed`)
+├── base/    <- worktree on `main`     (created by `git seed`)
+└── wt1/     <- worktree on `feature`  (created by `git wt-add`)
 ```
 
-| Command | Purpose |
-| --- | --- |
-| `git seed` | Clone a repo and create its first worktree in one step |
-| `git wt-add` | Put a branch in a worktree, creating the worktree if needed |
-| `git wt-park` | Park a worktree at the default branch, freeing its branch |
-| `git wt-setup` | Run a project's `.wt-setup/setup` hook in a worktree |
+`git seed` will:
+- create the bare repo (`.git/`)
+- create and lock your first worktree (called `base` by default)
 
-`git wt-park` is how you put a worktree on ice without tearing it down. A
-worktree holds its branch hostage since a branch can only exist in one
-worktree at a time. Parking detaches HEAD at the latest commit on the default
-branch rather than removing anything, so the branch is free to check out
-elsewhere or delete while everything created by `git wt-setup` stays around.
-`git wt-add` puts a branch back on:
+Future `git wt-add` calls put your worktrees alongside the one created by `git seed`.
+
+## Why enforce a flat repo layout
+
+Git gives every worktree an internal name and keeps its metadata under the
+bare repo at `.git/worktrees/<name>/`. The name is the last path segment of
+the worktree. When two worktrees share a last segment, git appends a counter
+rather than complaining:
 
 ```sh
-git wt-park wt1                 # park it; its branch is free to delete
-git wt-add wt1 main feature     # months later, back to work in wt1
+git worktree add --detach ~/scratch/a/feature
+git worktree add --detach ~/scratch/b/feature
+```
+```
+.git/worktrees/
+├── feature/     <- ~/scratch/a/feature
+└── feature1/    <- ~/scratch/b/feature
 ```
 
-Re-running it is also how a parked worktree moves forward. A detached HEAD is
-a commit, not a ref, so fetching never moves one on its own:
+Nothing breaks, but the short name is now ambiguous. This makes
+other commands error out with unhelpful messages:
 
 ```sh
-git wt-park wt1                 # fetch, then advance wt1 to mainline
+$ git worktree remove feature
+fatal: 'feature' is not a working tree
 ```
 
-Removing a worktree outright is `git worktree remove`, which already does that
-job well. The layout is the point: every worktree is a direct child of the
-project root, so the path it wants is never ambiguous.
+The flat layout sidesteps all of this by construction. Every worktree is a
+direct child of the project root. A directory can't hold two entries with the
+same name, so last path segments, and therefore internal names, are unique.
+Every worktree answers to its own directory name.
 
-See the [design_decisions](design_decisions.md) doc for implementation
-specific details.
+### Names, not paths
 
-See the [lazygit](docs/lazygit.md) doc to drive these commands from lazygit's
-worktrees panel.
+For the same reason, all of the commands in this project treat `<worktree_name>`
+as a name joined onto the project root derived from the bare repo's location,
+never onto the current directory. The same command run from a nested subdirectory,
+or from a *different* worktree, acts on the same place.
+
 
 ## Install
 
@@ -142,8 +148,7 @@ remote's `HEAD`, so repos on `main` and repos on `master` both work without
 being told which. The worktree is locked, marking it as the project's
 "default" worktree.
 
-The project's `.wt-setup/setup` hook is *not* run; that's
-[`git wt-setup`](#git-wt-setup).
+The project's `.wt-setup/setup` hook is *not* run. See [`git wt-setup`](#git-wt-setup).
 
 ### `git wt-add`
 
@@ -157,37 +162,13 @@ git wt-add wt1 main             # main checked out at <project_root>/wt1
 git wt-add wt1 main feature     # branch "feature" off main at <project_root>/wt1
 ```
 
-`<worktree_name>` is a name, not a path: it's joined onto the project root, so
+`<worktree_name>` is a name, not a path. It's joined onto the project root, so
 you get the same worktree no matter where in the repo you run the command
-from. Afterwards the branch's upstream is set to `origin/<branch>` if that
-remote branch exists.
+from.
 
-A worktree that's already there is not created again — the branch is checked out
-in it where it stands. That's what makes [`git wt-park`](#git-wt-park) worth
-using: a parked worktree keeps its `node_modules`, its `.venv`, its `.env`, and
-putting a branch back on costs nothing.
-
-```sh
-git wt-park wt1                 # park wt1, freeing its branch
-git wt-add wt1 main feature     # months later, back to work in wt1
-```
-
-Nothing has to be parked first. Running it against a worktree that's on a branch
-already is just a checkout, and naming the branch it's already on is a no-op
-that prints the path and exits 0 — so re-running the same command is safe.
-
-`-f` is only about an existing worktree: it checks out into one with modified or
-untracked files, discarding them. Without it, either is an error and nothing
-changes. A brand-new worktree has nothing to discard, so `-f` does nothing
-there.
-
-A branch checked out in *another* worktree is an error — git allows a branch in
-only one worktree at a time. That's the restriction `git wt-park` exists to
-work around; park the other worktree first.
-
-Creating the worktree is all this does; preparing it is `git wt-setup`. A
-worktree that was parked rather than removed was already prepared, so there's
-usually nothing left to run.
+Calling `git wt-add` with a worktree name that already exists **does not** recreate it.
+Instead the branch is checked out on the existing worktree. This is helpful when resurrecting
+worktrees that were parked using [`git wt-park`](#git-wt-park).
 
 ### `git wt-park`
 
@@ -202,63 +183,20 @@ git wt-park wt1        # park <project_root>/wt1
 git wt-park -n wt1     # no fetch; something else already did one
 ```
 
-The counterpart to `git wt-add`, taking a name the same way. Nothing is
-removed — removing a worktree is `git worktree remove`, which already does
-that job.
-
 A branch can only be checked out in one worktree at a time, so a worktree
-sitting idle on a branch holds that branch hostage: you can't check it out
+sitting idle on a branch holds that branch hostage. You can't check it out
 elsewhere and you can't delete it. Removing the worktree frees the branch, but
-it also throws away that worktree's `node_modules`, its `.venv`, its `.env` —
-every slow thing `git wt-setup` did, which you then pay for again.
+it also throws away anything that was set up using [`git wt-setup`](#git-wt-setup).
 
-So it detaches HEAD instead. The worktree keeps no branch checked out while the
-directory and everything in it stays exactly where it is:
+For cases like these were you want to free the branch and not remove the worktree,
+you can use `git wt-park`. This puts the worktree in a detached HEAD state, freeing
+the branch while also preserving your set up worktree for later use.
 
 ```sh
 git wt-park wt1          # wt1 keeps its files; its branch is free
 git branch -d feature    # ...so this now works
 git wt-add wt1 main feature
 ```
-
-The branch that was freed is reported with its short SHA, which is what
-you need if you delete it and later want it back:
-
-```
-$ git wt-park wt1
-Worktree /home/you/code/project_a/wt1 kept; branch 'feature' (ff74ab3) is free.
-  delete it:   git branch -d feature
-  put it back: git wt-add wt1 feature
-```
-
-`git worktree list` is how you see which worktrees are parked; they show up as
-`(detached HEAD)`.
-
-#### Where it parks
-
-At `origin/<default branch>` — the latest commit on mainline, fetched first
-unless `-n` says not to. In this layout the local default branch is usually the
-stale copy: a plain fetch updates `refs/remotes/origin/*` and nothing pulls the
-bare repo's own branches. Which branch is the default is read from the bare
-repo's `HEAD`, so repos on `main` and repos on `master` both work without being
-told which. `-b` overrides the target with any commit-ish.
-
-Re-running the command is how a parked worktree moves forward. A detached HEAD
-is a commit rather than a ref, so it never advances on its own — fetching
-`origin/main` a hundred times leaves a parked worktree exactly where it stood
-the day it was parked:
-
-```
-$ git wt-park wt1
-Worktree /home/you/code/project_a/wt1 moved: 3a4f2c1 -> 9b2e105 (origin/main).
-```
-
-That also means a worktree parked deliberately with `-b`, at a release tag or
-an older commit, gets pulled onto mainline by a bare `git wt-park`. The command
-always does what it says; `-b` is how you park it back.
-
-A worktree already parked at the commit it would be moved to is a no-op that
-prints the path and exits 0, so re-running this is safe.
 
 #### Arguments
 
@@ -327,7 +265,7 @@ executable is an error rather than an absent hook.
 
 `.wt-setup/` is also a good home for the untracked files each worktree needs,
 like a `.env` or a local config override, with the hook copying or symlinking
-them in. See [design_decisions.md](design_decisions.md#keeping-files-next-to-the-hook).
+them in.
 
 ## Completions
 
