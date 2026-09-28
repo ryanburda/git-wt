@@ -255,7 +255,7 @@ install anything:
 
 ```sh
 git wt-add wt1 main
-git -C wt1 wt-setup
+git wt-setup wt1
 ```
 
 The hook runs with the worktree as its working directory, so relative paths
@@ -328,3 +328,7 @@ source ~/.local/share/git-wt/completions/bash/git-wt-setup
 ```
 
 </details>
+
+## Lazygit
+
+See [lazygit](./docs/lazygit.md) for instructions on integrating `git-wt` commands into lazygit.
