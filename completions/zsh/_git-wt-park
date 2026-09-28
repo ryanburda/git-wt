@@ -1,17 +1,17 @@
-#compdef git-wt-clip
+#compdef git-wt-park
 #
-# zsh completion for `git wt-clip` and for the standalone
-# `git-wt-clip` command.
+# zsh completion for `git wt-park` and for the standalone
+# `git-wt-park` command.
 #
 # zsh's _git dispatches an unknown sub-command to a function named
-# `_git-<sub-command>`, so this file has to keep the name `_git-wt-clip`
+# `_git-<sub-command>`, so this file has to keep the name `_git-wt-park`
 # and sit on your fpath.
 
-__git_wt_clip_worktree_names() {
+__git_wt_park_worktree_names() {
   local -a names
-  # Every worktree: one on a branch has a branch to clip off, and one already
-  # parked gets moved forward to mainline's new tip, so both are worth offering.
-  # The bare repo is skipped: it isn't a worktree to clip. `git wt-clip` takes a
+  # Every worktree: one on a branch has a branch to free, and one already parked
+  # gets moved forward to mainline's new tip, so both are worth offering. The
+  # bare repo is skipped: it isn't a worktree to park. `git wt-park` takes a
   # name, not a path, so report the last path segment.
   names=(${(f)"$(git worktree list --porcelain 2>/dev/null | awk '
     /^worktree /{wt = substr($0, 10); bare = 0}
@@ -22,7 +22,7 @@ __git_wt_clip_worktree_names() {
   _describe -t worktrees worktree names
 }
 
-__git_wt_clip_commit_ish() {
+__git_wt_park_commit_ish() {
   local -a refs
   # Anywhere -b can park a detached HEAD: local branches, remote branches with
   # the remote name stripped, and tags.
@@ -34,13 +34,13 @@ __git_wt_clip_commit_ish() {
   _describe -t commits commit-ish refs
 }
 
-_git-wt-clip() {
+_git-wt-park() {
   _arguments -S \
     '-n[no fetch: park against the refs already in the repo]' \
-    '-f[clip a worktree with modified or untracked files, discarding them]' \
-    '-b[where to leave the detached HEAD (default: the latest commit on the default branch)]:commit-ish:__git_wt_clip_commit_ish' \
+    '-f[park a worktree with modified or untracked files, discarding them]' \
+    '-b[where to leave the detached HEAD (default: the latest commit on the default branch)]:commit-ish:__git_wt_park_commit_ish' \
     '-h[print help and exit]' \
-    '1:worktree name:__git_wt_clip_worktree_names'
+    '1:worktree name:__git_wt_park_worktree_names'
 }
 
-_git-wt-clip "$@"
+_git-wt-park "$@"

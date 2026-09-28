@@ -8,24 +8,24 @@
 #
 # .zshrc typically runs compinit before extensions like this are sourced, so
 # rather than adding to fpath and re-running compinit, the completion function
-# is autoloaded directly: zsh's _git dispatches `git wt-bud` to a
-# function named `_git-wt-bud`, and compdef binds the standalone command.
+# is autoloaded directly: zsh's _git dispatches `git wt-add` to a
+# function named `_git-wt-add`, and compdef binds the standalone command.
 
 _git_wt_root=${0:A:h:h:h}
 
 fpath=($_git_wt_root/completions/zsh $fpath)
-autoload -Uz _git-wt-bud
-compdef _git-wt-bud git-wt-bud
-autoload -Uz _git-wt-clip
-compdef _git-wt-clip git-wt-clip
+autoload -Uz _git-wt-add
+compdef _git-wt-add git-wt-add
+autoload -Uz _git-wt-park
+compdef _git-wt-park git-wt-park
 autoload -Uz _git-wt-setup
 compdef _git-wt-setup git-wt-setup
 
 # Offer the commands, with descriptions, when completing `git <TAB>`.
 zstyle ':completion:*:*:git:*' user-commands \
-    seed:'clone a repo and grow its first worktree in one step' \
-    wt-bud:'put a branch in a worktree, growing the worktree if needed' \
-    wt-clip:'clip the branch off a worktree, parking it at the default branch' \
+    seed:'clone a repo and create its first worktree in one step' \
+    wt-add:'put a branch in a worktree, creating the worktree if needed' \
+    wt-park:'park a worktree at the default branch, freeing its branch' \
     wt-setup:'run the project .wt-setup/setup hook in a worktree'
 
 unset _git_wt_root

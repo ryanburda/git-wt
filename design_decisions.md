@@ -48,7 +48,7 @@ Every worktree answers to its own directory name.
 
 ### Why nested names are rejected
 
-`git wt-bud` takes a *name* and joins it onto the project root. A name
+`git wt-add` takes a *name* and joins it onto the project root. A name
 containing `/` is a relative path, and plain `git worktree add` would happily
 create the intermediate directories, undoing the guarantee above:
 
@@ -59,10 +59,10 @@ project/
 └── b/wt/      <- .git/worktrees/wt1     <- collision is back
 ```
 
-So `git wt-bud` requires a single path segment that can be thought of as a name:
+So `git wt-add` requires a single path segment that can be thought of as a name:
 
 ```sh
-$ git wt-bud a/wt main
+$ git wt-add a/wt main
 Error: <worktree_name> must be a directory name, not a path: 'a/wt'
 ```
 
@@ -75,7 +75,7 @@ still takes an arbitrary path.
 
 ### Names, not paths
 
-For the same reason, `git wt-bud`, `git wt-clip`, and the completions all treat
+For the same reason, `git wt-add`, `git wt-park`, and the completions all treat
 `<worktree_name>` as a name joined onto the project root derived from the bare
 repo's location, never onto the current directory. The same command run from a
 nested subdirectory, or from a *different* worktree, acts on the same place.
@@ -100,7 +100,7 @@ the base worktree that all other worktrees get added alongside.
 default worktree and protects it from `git worktree prune`. It also means
 removing it is a deliberate act: `git worktree remove base` fails, and
 `git worktree remove -f -f base` is the only way through -- git wants a second
-`--force` for a lock. `git wt-clip base` is unaffected: it removes nothing, so
+`--force` for a lock. `git wt-park base` is unaffected: it removes nothing, so
 the lock has nothing to protect against, and parking the default worktree is an
 ordinary thing to do.
 
@@ -128,7 +128,7 @@ being told which.
 
 ## Why `wt-setup` is a separate command
 
-`git seed` and `git wt-bud` create worktrees and stop there. `git wt-setup` 
+`git seed` and `git wt-add` create worktrees and stop there. `git wt-setup` 
 prepares a worktree by running project specific tasks like installing
 dependencies or copying an `.env`. This is yours to customize to suit your needs.
 
@@ -233,11 +233,11 @@ it for all of them and for the next worktree you create.
 
 Whichever you pick, make sure the result is ignored. These files land *inside*
 the worktree, so anything the repo's `.gitignore` doesn't already cover shows
-up as untracked, and `git wt-clip` then refuses to park that worktree without
+up as untracked, and `git wt-park` then refuses to park that worktree without
 `-f` -- as does `git worktree remove`, for the same files:
 
 ```
-$ git wt-clip wt1
+$ git wt-park wt1
 Error: /home/you/code/project_a/wt1 has modified or untracked files
 Commit or clean them, or use -f to discard them.
 ```
@@ -263,45 +263,64 @@ ln -sfn ~/code/repos/project_a/.wt-setup ~/code/project_a/.wt-setup
 
 ## The command names
 
-Three of the four are a bonsai -- a tree you keep deliberately small, and go on
-shaping for years:
+Every name says what the command does to a worktree, and nothing else:
 
-- **`seed`** starts one: a worktree-first `git clone`.
-- **`bud`** is where new growth appears on an existing tree, which is both
-  things the command does -- it grows a new worktree, and it puts a new branch
-  on one that is already there.
-- **`clip`** is cutting growth off: the branch, leaving the worktree behind.
+- **`seed`** starts a project: a worktree-first `git clone`. The one name that
+  isn't literal, and it survives because it is unclaimed, because it reads as
+  "begin" to someone who has never seen this tool, and because it is the only
+  command you run before a project exists.
+- **`wt-add`** puts a branch in a worktree, creating the worktree if it isn't
+  there yet.
+- **`wt-park`** takes the branch back off, leaving the worktree in place with a
+  detached HEAD.
+- **`wt-setup`** runs the project's `.wt-setup/setup` hook in a worktree.
 
-`git wt-setup` is the fourth, and it deliberately isn't one of them. See
-[below](#why-wt-setup-isnt-a-gardening-verb).
+`wt-add` and `wt-park` were `bud` and `clip` for a while, under a bonsai theme
+that also gave `seed` its name -- a tree you keep deliberately small and go on
+shaping for years. The theme was coherent and the words were pleasant, and that
+is the whole of what it had. A name's job here is to tell someone who has never
+used the command what it does, and `clip` didn't: it needed a sentence of
+explanation everywhere it appeared, which is a name failing at the one thing a
+name is for. `park` is the verb the docs were already using to explain `clip`.
+
+`add` and `park` are also honest about what the commands are. `wt-add` is
+`git worktree add` plus "and work on an existing worktree too", and naming it
+after the git command it extends is the fastest way to say so. `park` names the
+state a worktree ends up in, which is what makes it survive the command's second
+job: bringing an already-parked worktree up to mainline is still parking it.
 
 Names that were considered and rejected:
 
-- `prune` for removing a worktree outright, back when `clip` did that too. Its
-  symmetry with `graft` is perfect and its horticulture is real, but
+- `prune` for removing a worktree outright, back when `clip` did that too.
   `git worktree prune` already exists and means something unrelated -- deleting
   the metadata of worktrees whose directories are gone -- so `git prune` sitting
   next to it would read as a wrapper around it. (`git prune` is also a real git
   command, on objects.) Removal ended up not needing a name here at all; see
-  [below](#why-clip-doesnt-remove-worktrees).
-- `freeze`/`thaw` for the parking pair. Accurate, and attached to no theme.
+  [below](#why-park-doesnt-remove-worktrees).
+- `detach` for `park`. Literally what the command runs, and it loses on the
+  half it doesn't say: not where HEAD lands, and not what re-running it does to
+  a worktree that is already detached.
+- `freeze`/`thaw` for the parking pair, before there was a pair to name.
 - `root` for the default worktree, back when it was being named. It reads as
   superuser, or as the root of the repo. `base` won that one.
 
 ### Why the `wt-` prefix
 
-`git wt-bud` and `git wt-clip` were `git bud` and `git clip` for a while. The
-argument for the bare names was that the prefix is a tax on every use of the
-commands, which is where you actually spend the time: `git bud wt1 main feature`
-reads as a sentence, and the theme only works if the words are allowed to be
-words.
+`git wt-add` and `git wt-park` are prefixed and `git seed` is not, and the split
+is not an accident.
 
-That is true, and it is still the wrong trade. `bud` and `clip` are exactly the
-names some other tool, alias, or future git will want, and a bare verb in your
-shell history says nothing about worktrees to anyone reading it later -- you
-included. Against a few keystrokes, the prefix buys a tab-completion stem that
-groups the family, and it keeps these names out of the way of every other
-`git-*` extension on your PATH.
+The argument against the prefix is that it is a tax on every use of the
+commands, which is where you actually spend the time. That is true, and it is
+still the wrong trade for these two. `add` and `park` are exactly the names some
+other tool, alias, or future git will want -- `git add` is already the most-typed
+command in git -- and a bare verb in your shell history says nothing about
+worktrees to anyone reading it later, you included. Against a few keystrokes,
+the prefix buys a tab-completion stem that groups the family, and it keeps these
+names out of the way of every other `git-*` extension on your PATH.
+
+`git seed` gets away with being bare because it is unclaimed, and because it is
+the command you run *before* the layout exists -- there is no family to group it
+with at the moment you type it, and no worktree for the prefix to be about.
 
 The prefix is also already everywhere the commands aren't. The project is
 `git-wt`, so the repo, `GIT_WT_HOME`, and the zsh loader carry the name, and the
@@ -311,26 +330,18 @@ cosmetic -- `__git_<noun>` belongs to bash-completion's own git module
 no business in it. Having the part you type match the project it comes from is
 the consistent end of that, not an exception to it.
 
-The verbs survive the prefix intact. `wt-bud` and `wt-clip` still say bud and
-clip; they just say which tree first.
+### Why `wt-setup` is named after its directory
 
-### Why `wt-setup` isn't a gardening verb
+`git wt-setup` runs a hook you wrote, in a worktree, to install whatever that
+project needs. It is named after the `.wt-setup/` directory it reads, and the
+two names matching is the point: the command tells you where to put the hook,
+and the directory tells you which command runs it.
 
-`git wt-setup` shares the prefix but not the theme, and that is not an
-oversight.
-
-It is the only one of the commands that isn't a gardening act. `seed`, `bud`,
-and `clip` all do something to the tree, and each word says which. `wt-setup`
-runs a hook you wrote, in a worktree, to install whatever that project needs --
-plumbing, named after the `.wt-setup/` directory it runs. A bonsai verb over the
-top of that would be decoration, not description. `pot` was the candidate, and
-it read well -- potting gives a plant the soil it needs to live, and it is where
-a bonsai's roots get worked on, which is what `git wt-clip` preserves -- but
-it named the metaphor rather than the job, and the job is "run the setup hook".
-
-So `wt-setup` is the worktree-setup command, it reads the `.wt-setup/`
-directory, and the two names matching is the point. The odd name out marks the
-odd command out, which is the useful thing for it to do.
+It is also the one command here that doesn't act on a worktree's *shape*. `seed`,
+`wt-add`, and `wt-park` create, fill, and empty worktrees; `wt-setup` runs
+somebody else's script inside one. Naming it for its job rather than for a verb
+in the same family as the others marks that difference, which is the useful
+thing for it to do.
 
 ## Putting a worktree on ice
 
@@ -339,7 +350,7 @@ exactly one worktree at a time, so an idle worktree isn't just sitting on disk
 doing nothing -- it's sitting on a branch name:
 
 ```
-$ git wt-bud wt2 feature
+$ git wt-add wt2 feature
 fatal: 'feature' is already used by worktree at '/home/you/code/project_a/wt1'
 ```
 
@@ -351,21 +362,21 @@ free up a branch name.
 
 Detaching HEAD frees the branch and costs nothing. A worktree with a detached
 HEAD has no current branch, so nothing is claimed, and the directory is
-untouched. That is `git wt-clip`, and `git wt-bud` is the other direction: it
+untouched. That is `git wt-park`, and `git wt-add` is the other direction: it
 checks a branch back out in a worktree that already exists.
 
 ```sh
-git wt-clip wt1       # wt1 keeps its files; branch 'feature' is free
+git wt-park wt1       # wt1 keeps its files; branch 'feature' is free
 git branch -d feature # ...so this now works
-git wt-bud wt1 main other-feature
+git wt-add wt1 main other-feature
 ```
 
 The pair turns "remove the worktree" into "park the worktree", which is what you
 actually wanted whenever the setup was the expensive part.
 
-### Why budding and growing are one command
+### Why adding and creating are one command
 
-`git wt-bud` creates a worktree when there isn't one and checks the branch out
+`git wt-add` creates a worktree when there isn't one and checks the branch out
 in place when there is. Those were briefly two commands taking identical
 arguments, which is a sign they were one command: at the call site you know the
 worktree name and the branch you want in it, and whether the directory happens
@@ -374,19 +385,19 @@ to exist already is not a thing you should have to have tracked.
 Merging them keeps one promise worth being careful about. `git wt-add` was
 documented as safe to re-run -- adding a worktree that already existed was a
 no-op. That still holds, because it is the *same arguments* that stay a no-op:
-budding the branch a worktree is already on reports and exits 0. Only a
+naming the branch a worktree is already on reports and exits 0. Only a
 *different* branch causes a checkout, which is a different command line, and one
 that can't have been a no-op under the old behavior either, since it would have
 been an add of a worktree that wasn't there.
 
 What it won't do is create a worktree that isn't there when you plainly meant an
 existing one -- there's no way to tell those apart from the arguments, so it
-doesn't try. It creates, and the worst case is a worktree you then clip.
+doesn't try. It creates, and the worst case is a worktree you then remove.
 
-### Why clip doesn't remove worktrees
+### Why park doesn't remove worktrees
 
-`git wt-clip` used to do both: remove a worktree by default, and with `-k` clip
-off only its branch. The removing half is gone, because `git worktree remove`
+`git wt-park` used to do both: remove a worktree by default, and with `-k`
+detach its branch instead. The removing half is gone, because `git worktree remove`
 already does that job completely and the wrapper was adding nothing.
 
 The thing a wrapper usually adds is resolving *which* worktree you mean.
@@ -395,31 +406,31 @@ question -- worktrees can sit anywhere, at any depth, under any name. That is
 the ambiguity this layout exists to remove. Every worktree is a direct child of
 the project root, so the leaf of the path is unique across the project and
 `git worktree remove wt1` from inside the project finds the same directory
-`git wt-clip wt1` would have. There was no ambiguity left to resolve, and what
+`git wt-park wt1` would have. There was no ambiguity left to resolve, and what
 remained was a second spelling of a command git ships, with its own `-f`
 semantics to keep straight (one `--force` for dirty, two for a lock) and its own
 no-op rules to remember.
 
 What git has no equivalent for is the other half: freeing a branch without
-tearing the worktree down. So that is all `git wt-clip` is now, and the flag
+tearing the worktree down. So that is all `git wt-park` is now, and the flag
 that used to select it is gone with it -- there is nothing left to select
 between.
 
 Two behaviors went with the removing half:
 
 - **Stdout.** A removal printed the project root, because the directory you were
-  standing in might be gone and you needed somewhere to `cd`. Clip always prints
+  standing in might be gone and you needed somewhere to `cd`. Park always prints
   the worktree's own path now, which is still "where you want to be afterwards"
   -- the rule the command actually follows.
-- **A missing worktree.** For a removal that was an already-done no-op. For clip
+- **A missing worktree.** For a removal that was an already-done no-op. For park
   it is an error: you asked to park a worktree that isn't there, which is a typo
   rather than a state something else reached. There's nothing to keep, and
   succeeding would hide the mistake.
 
 ### Why it detaches at the latest default-branch commit
 
-`git wt-clip` parks HEAD at the project's default branch, not at the tip of the
-branch it is clipping off.
+`git wt-park` parks HEAD at the project's default branch, not at the tip of the
+branch it is taking off.
 
 Either one frees the branch, so this is a choice about what a parked worktree
 should contain. The default branch is the useful answer: a worktree you come
@@ -433,7 +444,7 @@ The branch is read from the bare repo's `HEAD`, the same source
 [`git seed`](#why-git-seed-reshapes-the-bare-repo) uses, so `main` and `master`
 both work without being told which. `HEAD` is per-worktree, so it has to be read
 from the common dir: the current worktree's `HEAD` names the branch being
-clipped off, or is already detached, and neither one is the project default.
+being parked, or is already detached, and neither one is the project default.
 
 The commit it resolves to is `origin/<default branch>`, after a fetch. In this
 layout `refs/heads/main` is the stale copy -- a fetch writes
@@ -448,9 +459,9 @@ worktree from parking at the newest commit on disk.
 `-b <commit-ish>` overrides the parking spot for the cases where mainline isn't
 what you want -- a release tag, an older commit the worktree is pinned to.
 
-### Why re-clipping is how a parked worktree moves forward
+### Why re-parking is how a parked worktree moves forward
 
-Parking fixes where a worktree sits on the day it is clipped, and nothing moves
+Parking fixes where a worktree sits on the day it is parked, and nothing moves
 it afterwards. A detached HEAD is a commit, not a ref: `refs/remotes/origin/main`
 advances on every fetch and the parked worktree stays exactly where it was. Come
 back in a month and the "parked at mainline" worktree is parked at last month's
@@ -462,15 +473,15 @@ branch is the one thing a parked worktree must not hold. So the update has to be
 an action someone takes.
 
 That action was `git wt-sync` for a while, and it is now just running
-`git wt-clip` again. The two commands had one difference between them -- whether
+`git wt-park` again. The two commands had one difference between them -- whether
 the worktree happened to have a branch checked out when you ran it -- and that
 is not a difference worth a second name, a second set of flags, and a second
 completion. "Put this worktree at mainline, detached" describes both, so one
 command says it:
 
 ```sh
-git wt-clip wt1   # from a branch: parks it, frees 'feature'
-git wt-clip wt1   # a month later: moves it to mainline's new tip
+git wt-park wt1   # from a branch: parks it, frees 'feature'
+git wt-park wt1   # a month later: moves it to mainline's new tip
 ```
 
 It acts on one worktree -- the one named, or the one the caller is standing in,
@@ -479,7 +490,7 @@ over every parked worktree in the project is the obvious alternative and the
 wrong one: it moves directories nobody was looking at, on the strength of a
 single keystroke, and the thing being moved is a working tree rather than a ref.
 Naming one worktree, or standing in it, is a small enough price for knowing what
-a run is going to touch. Clipping several is a loop in a shell, which is where a
+a run is going to touch. Parking several is a loop in a shell, which is where a
 loop belongs -- `-n` is there so that loop fetches once.
 
 Merging the two lost `wt-sync`'s fast-forward rule, which advanced a worktree
@@ -488,7 +499,7 @@ rule protected a worktree deliberately parked with `-b`, at a release tag, from
 being hauled onto mainline. It is gone on purpose: a command whose one job is
 "park this at mainline" should do that every time it is run, not consult where
 the worktree happens to be standing first. A worktree parked at a tag goes to
-mainline on a bare `git wt-clip`, and `-b` puts it back. The cost is real and
+mainline on a bare `git wt-park`, and `-b` puts it back. The cost is real and
 the alternative was worse -- a command that sometimes refuses is one you have to
 remember the rules of.
 
@@ -496,15 +507,15 @@ The no-op that survived is the one that means nothing needs doing: a worktree
 already detached at the target commit reports and exits 0, which is what
 re-running after a fetch that brought nothing new looks like. A worktree still
 on a branch is never that case, even when the branch points at the target --
-there is still a branch to clip off. A worktree clip *won't* move -- dirty
+there is still a branch to take off. A worktree park *won't* move -- dirty
 without `-f`, an unknown ref, a name that isn't a worktree -- exits 128 having
-changed nothing, the same line `wt-bud` draws.
+changed nothing, the same line `wt-add` draws.
 
 ### Why it doesn't delete the branch
 
 Freeing the branch is the point, and deleting it is the obvious next step, but
-`git wt-clip` stops at freeing it. These commands manage worktrees and leave
-branches to `git branch`, the same line `git wt-bud` draws by leaving branch
+`git wt-park` stops at freeing it. These commands manage worktrees and leave
+branches to `git branch`, the same line `git wt-add` draws by leaving branch
 creation to its explicit third argument. A
 command that deletes a branch as a side effect of parking a directory is one you
 have to think twice before running.
@@ -513,8 +524,8 @@ So it prints what you need instead, including the SHA, which is what makes
 deleting the branch recoverable rather than final:
 
 ```
-$ git wt-clip wt1
+$ git wt-park wt1
 Worktree /home/you/code/project_a/wt1 kept; branch 'feature' (ff74ab3) is free.
   delete it:   git branch -d feature
-  put it back: git wt-bud wt1 feature
+  put it back: git wt-add wt1 feature
 ```

@@ -4,16 +4,16 @@ set -e
 usage() {
     cat >&2 <<'EOF'
 Usage:
-  git wt-clip [-n] [-f] [<worktree_name>]                 # clip off its branch
-  git wt-clip [-n] [-f] -b <commit-ish> [<worktree_name>] # park somewhere else
+  git wt-park [-n] [-f] [<worktree_name>]                 # park it at mainline
+  git wt-park [-n] [-f] -b <commit-ish> [<worktree_name>] # park somewhere else
 
-The counterpart to `git wt-bud`. Clips the branch off a worktree in the repo
-folder structure these commands enforce:
+The counterpart to `git wt-add`. Parks a worktree in the repo folder structure
+these commands enforce, leaving it with no branch checked out:
 
   $root_path/
   ├── .git/              <- bare repo (created by seed)
-  ├── feature-a/         <- worktree (created by bud)
-  └── feature-b/         <- worktree (clipped by clip)
+  ├── feature-a/         <- worktree (created by add)
+  └── feature-b/         <- worktree (parked by park)
 
 The worktree is looked up as a sibling of the .git bare repo directory,
 regardless of where the command is run from within the repo.
@@ -25,14 +25,14 @@ branch, but it also throws away any setup that was done for that worktree -- its
 node_modules, its .venv, its .env -- every slow thing `git wt-setup` did, which
 you then pay for again.
 
-So clip detaches HEAD instead: the worktree keeps no branch checked out while
-the directory and everything in it stays exactly where it is. The branch is then
-free to check out elsewhere or delete, and `git wt-bud` buds one back on when
-you want the worktree again.
+So it detaches HEAD instead: the worktree keeps no branch checked out while the
+directory and everything in it stays exactly where it is. The branch is then
+free to check out elsewhere or delete, and `git wt-add` puts one back when you
+want the worktree again.
 
-  git wt-clip wt1          # wt1 keeps its files; its branch is free
+  git wt-park wt1          # wt1 keeps its files; its branch is free
   git branch -d feature    # ...so this now works
-  git wt-bud wt1 main feature
+  git wt-add wt1 main feature
 
 `git worktree list` is how you see which worktrees are parked this way; they
 show up as "(detached HEAD)".
@@ -54,19 +54,19 @@ Where it parks:
 
 Re-running it is how a parked worktree moves forward. A detached HEAD is a
 commit, not a ref, so it never advances on its own: fetching origin a hundred
-times leaves a parked worktree exactly where it stood the day it was clipped.
-Clipping it again fetches and moves it to mainline's new tip.
+times leaves a parked worktree exactly where it stood the day it was parked.
+Parking it again fetches and moves it to mainline's new tip.
 
-  git wt-clip wt1        # parks wt1 at mainline as it is today
+  git wt-park wt1        # parks wt1 at mainline as it is today
   ...weeks of upstream commits...
-  git wt-clip wt1        # wt1 is at mainline again
+  git wt-park wt1        # wt1 is at mainline again
 
 Arguments:
   -n               No fetch. Park against the refs already in the repo. Use it
                    when something else just fetched -- a lazygit binding that
                    runs its own fetch first, a loop over several worktrees --
                    so the network is paid for once rather than once per call.
-  -f               Force. Clips a worktree that has modified or untracked files,
+  -f               Force. Parks a worktree that has modified or untracked files,
                    discarding them. Without it, either one is an error and
                    nothing is changed. A lock is irrelevant, since nothing is
                    being removed: the `base` worktree `git seed` locks parks
@@ -78,35 +78,35 @@ Arguments:
   <worktree_name>  Optional. A directory name, not a path. It is always joined
                    onto the project root derived from the bare repo's location,
                    never the current directory, so the same command from a
-                   nested subdirectory or another worktree clips the same
+                   nested subdirectory or another worktree parks the same
                    worktree. Names containing "/", and "." and "..", are
                    rejected: only direct children of the project root are
-                   worktrees this command knows how to clip. A trailing "/" is
+                   worktrees this command knows how to park. A trailing "/" is
                    ignored, so a name completed as a directory works.
 
                    Without it, the worktree containing the current directory,
-                   which is what makes the bare `git wt-clip` useful from a
+                   which is what makes the bare `git wt-park` useful from a
                    tool that already sits in one.
 
 Returns:
   Prints the worktree's path, so the usual form works:
 
-    cd "$(git wt-clip wt1)"
+    cd "$(git wt-park wt1)"
 
   The worktree survives, so a worktree that isn't there is an error rather than
-  a no-op: there is nothing to clip. A worktree already parked at the commit it
+  a no-op: there is nothing to park. A worktree already parked at the commit it
   would be moved to is a no-op that prints the path and exits 0, so re-running
   this is safe.
 
-  The branch that was clipped off is reported on stderr with its short SHA,
+  The branch that was freed is reported on stderr with its short SHA,
   which is what you need if you delete the branch and later want it back.
 
 Examples:
-  git wt-clip              # clip the worktree you're standing in
-  git wt-clip wt1          # clip $root_path/wt1
-  git wt-clip -n wt1       # no fetch; something else already did one
-  git wt-clip -f wt1       # discard wt1's leftover files and clip it
-  git wt-clip -b v2.1 wt1  # park wt1 on the v2.1 tag instead
+  git wt-park              # park the worktree you're standing in
+  git wt-park wt1          # park $root_path/wt1
+  git wt-park -n wt1       # no fetch; something else already did one
+  git wt-park -f wt1       # discard wt1's leftover files and park it
+  git wt-park -b v2.1 wt1  # park wt1 on the v2.1 tag instead
 EOF
 }
 
@@ -141,10 +141,10 @@ if [[ -n "$WORKTREE_NAME" ]]; then
     done
 
     # <worktree_name> is joined onto the project root, so it has to be a single
-    # path segment, for the same reason `git wt-bud` requires one: every worktree
+    # path segment, for the same reason `git wt-add` requires one: every worktree
     # in this layout is a direct child of the project root. Anything else names a
     # path this command didn't create and won't touch. ".git" is the bare repo
-    # itself, which has no working tree to clip.
+    # itself, which has no working tree to park.
     case "$WORKTREE_NAME" in
         */*)
             echo "Error: <worktree_name> must be a directory name, not a path: '${WORKTREE_NAME}'" >&2
@@ -185,7 +185,7 @@ if [[ -n "$WORKTREE_NAME" ]]; then
     # `fatal: cannot change to ...` out.
     if [[ ! -d "$WORKTREE_PATH" ]]; then
         echo "Error: ${WORKTREE_PATH} is registered but its directory is missing" >&2
-        echo "Run 'git worktree prune' to clear it, or 'git wt-bud' to grow it back." >&2
+        echo "Run 'git worktree prune' to clear it, or 'git wt-add' to grow it back." >&2
         exit 128
     fi
 else
@@ -195,7 +195,7 @@ else
     # git's own "must be run in a work tree" out.
     if ! WORKTREE_PATH=$(git rev-parse --show-toplevel 2>/dev/null); then
         echo "Error: not inside a worktree (the project root holds the bare repo)" >&2
-        echo "Name the worktree to clip: git wt-clip <worktree_name>" >&2
+        echo "Name the worktree to park: git wt-park <worktree_name>" >&2
         exit 128
     fi
     WORKTREE_NAME=${WORKTREE_PATH##*/}
@@ -217,7 +217,7 @@ fi
 
 if [[ -z "$DETACH_AT" ]]; then
     # HEAD is per-worktree, so this has to be read from the common dir: the
-    # current worktree's HEAD names the branch being clipped off, or is already
+    # current worktree's HEAD names the branch being parked, or is already
     # detached, and neither one is the project default.
     DEFAULT_BRANCH=$(git -C "$BARE_DIR" symbolic-ref --short HEAD 2>/dev/null || true)
 
@@ -259,7 +259,7 @@ CURRENT_BRANCH=$(git -C "$WORKTREE_PATH" branch --show-current)
 
 # Already parked at the target. Re-running after a fetch that brought nothing
 # new is the normal case, not an error: report it, print the path, and exit 0.
-# A worktree still on a branch has a branch to clip off even when that branch
+# A worktree still on a branch has a branch to free even when that branch
 # happens to point at the target, so it is not this case.
 if [[ -z "$CURRENT_BRANCH" && "$CURRENT_SHA" == "$TARGET_SHA" ]]; then
     echo "Worktree ${WORKTREE_PATH} is already parked at ${DETACH_AT} (${TARGET_SHORT}), skipping." >&2
@@ -267,7 +267,7 @@ if [[ -z "$CURRENT_BRANCH" && "$CURRENT_SHA" == "$TARGET_SHA" ]]; then
     exit 0
 fi
 
-# Refuse a dirty worktree without -f, the same as `git wt-bud`. Parking a
+# Refuse a dirty worktree without -f, the same as `git wt-add`. Parking a
 # worktree is meant to be reversible, and moving it onto another commit is not
 # the moment to discover uncommitted work. `status --porcelain` counts staged,
 # modified, and untracked-but-not-ignored files, so the files a setup hook drops
@@ -298,7 +298,7 @@ git -C "$WORKTREE_PATH" -c advice.detachedHead=false \
 if [[ -n "$CURRENT_BRANCH" ]]; then
     echo "Worktree ${WORKTREE_PATH} kept; branch '${CURRENT_BRANCH}' (${CURRENT_SHORT}) is free." >&2
     echo "  delete it:   git branch -d ${CURRENT_BRANCH}" >&2
-    echo "  put it back: git wt-bud ${WORKTREE_NAME} ${CURRENT_BRANCH}" >&2
+    echo "  put it back: git wt-add ${WORKTREE_NAME} ${CURRENT_BRANCH}" >&2
 else
     echo "Worktree ${WORKTREE_PATH} moved: ${CURRENT_SHORT} -> ${TARGET_SHORT} (${DETACH_AT})." >&2
 fi

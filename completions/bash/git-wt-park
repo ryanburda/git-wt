@@ -1,21 +1,21 @@
-# bash completion for `git wt-clip` and for the standalone
-# `git-wt-clip` command.
+# bash completion for `git wt-park` and for the standalone
+# `git-wt-park` command.
 #
 # git's own completion dispatches `git <sub-command>` to a function named
 # `_git_<sub_command>`, and asks bash-completion's lazy loader for a file named
 # `git-<sub-command>` when that function isn't defined yet. Naming this file
-# `git-wt-clip` and defining `_git_wt_clip` satisfies both.
+# `git-wt-park` and defining `_git_wt_park` satisfies both.
 
-__git_wt_worktree_names ()
+__git_wt_park_worktree_names ()
 {
 	# Prefer git's own wrapper, which honors `git -C <dir>` and `--git-dir`.
 	local g=git
 	declare -f __git > /dev/null 2>&1 && g=__git
 
-	# Every worktree: one on a branch has a branch to clip off, and one already
+	# Every worktree: one on a branch has a branch to free, and one already
 	# parked gets moved forward to mainline's new tip, so both are worth
-	# offering. The bare repo is skipped: it isn't a worktree to clip.
-	# `git wt-clip` takes a name, not a path, so report the last path segment.
+	# offering. The bare repo is skipped: it isn't a worktree to park.
+	# `git wt-park` takes a name, not a path, so report the last path segment.
 	$g worktree list --porcelain 2> /dev/null | awk '
 		/^worktree /{wt = substr($0, 10); bare = 0}
 		/^bare$/{bare = 1}
@@ -24,7 +24,7 @@ __git_wt_worktree_names ()
 	' | sed 's|.*/||'
 }
 
-__git_wt_clip_commit_ish ()
+__git_wt_park_commit_ish ()
 {
 	local g=git
 	declare -f __git > /dev/null 2>&1 && g=__git
@@ -37,17 +37,17 @@ __git_wt_clip_commit_ish ()
 	} 2> /dev/null | grep -vx HEAD | sort -u
 }
 
-_git_wt_clip ()
+_git_wt_park ()
 {
 	local cur=${COMP_WORDS[COMP_CWORD]}
 	local prev=${COMP_WORDS[COMP_CWORD - 1]}
 	local i idx=0 args=0
 
 	# Find the sub-command so argument positions come out the same whether we
-	# were reached as `git wt-clip` or as `git-wt-clip`.
+	# were reached as `git wt-park` or as `git-wt-park`.
 	for ((i = 0; i < COMP_CWORD; i++)); do
 		case ${COMP_WORDS[i]} in
-		wt-clip | git-wt-clip | */git-wt-clip)
+		wt-park | git-wt-park | */git-wt-park)
 			idx=$i
 			break
 			;;
@@ -56,7 +56,7 @@ _git_wt_clip ()
 
 	# -b takes an argument, so the word after it is a commit-ish, not the name.
 	if [[ $prev == -b ]]; then
-		COMPREPLY=($(compgen -W "$(__git_wt_clip_commit_ish)" -- "$cur"))
+		COMPREPLY=($(compgen -W "$(__git_wt_park_commit_ish)" -- "$cur"))
 		return
 	fi
 
@@ -77,12 +77,12 @@ _git_wt_clip ()
 	done
 
 	if ((args == 0)); then
-		COMPREPLY=($(compgen -W "$(__git_wt_worktree_names)" -- "$cur"))
+		COMPREPLY=($(compgen -W "$(__git_wt_park_worktree_names)" -- "$cur"))
 	else
 		COMPREPLY=()
 	fi
 }
 
-# The `git wt-clip` form is dispatched by git's completion; this covers
+# The `git wt-park` form is dispatched by git's completion; this covers
 # running the command directly.
-complete -F _git_wt_clip git-wt-clip
+complete -F _git_wt_park git-wt-park

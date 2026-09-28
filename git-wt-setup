@@ -11,14 +11,14 @@ Run the project's worktree setup hook against a worktree.
 The hook lives at <project_root>/.wt-setup/setup, next to the bare .git
 directory.
 
-This is deliberately separate from `git wt-bud`: setup can be slow, so
+This is deliberately separate from `git wt-add`: setup can be slow, so
 adding a worktree and preparing it are two different jobs.
 
 Does nothing (successfully) when the project has no hook, so it is safe to
 call unconditionally.
 
 The hook is yours to write:
-  Nothing creates it for you. `git seed` and `git wt-bud` never write it, and
+  Nothing creates it for you. `git seed` and `git wt-add` never write it, and
   .wt-setup/ is untracked, so it does not arrive with a clone either -- until
   you put a file at that path yourself, this command is a no-op.
 
@@ -60,7 +60,7 @@ Other files in .wt-setup/:
     ln -sfn "$WT_DIR/config.local.json" .  # one shared file, linked in
 
   Those files land inside the worktree, so anything the repo's .gitignore does
-  not already cover counts as untracked and `git wt-clip` will then refuse
+  not already cover counts as untracked and `git wt-park` will then refuse
   without -f. List them in .git/info/exclude, which lives in the bare repo and
   applies to every worktree.
 
