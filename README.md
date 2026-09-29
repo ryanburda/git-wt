@@ -35,7 +35,7 @@ The commands above produce the following repo layout:
 ./project/
 ├── .git/    <- bare repo                   (created by `git seed`)
 ├── base/    <- worktree on `main`          (created by `git seed`)
-└── wt1/     <- worktree on `feature`       (created by `git wt-add`)
+├── wt1/     <- worktree on `feature`       (created by `git wt-add`)
 └── wt2/     <- worktree with detached HEAD (created by `git wt-add`)
 ```
 
