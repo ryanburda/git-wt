@@ -4,7 +4,8 @@ set -e
 usage() {
     cat >&2 <<'EOF'
 Usage:
-  git wt-add <worktree_name> <branch>               # check out an existing branch
+  git wt-add [-d] <worktree_name>                   # check out the default branch
+  git wt-add [-d] <worktree_name> <branch>          # check out an existing branch
   git wt-add <worktree_name> <branch> <new_branch>  # create new_branch off branch
 
 Create a new worktree.
@@ -23,6 +24,10 @@ Creating the worktree is all this does. Preparing it is done by `git wt-setup`.
 
 Arguments:
   -h               Print this help and exit.
+  -d               Create the worktree in a detached HEAD state at <branch>,
+                   instead of checking out <branch> itself. Cannot be combined
+                   with <new_branch>, since creating a branch always checks it
+                   out.
   <worktree_name>  A directory name, not a path. It is always joined onto the
                    project root derived from the bare repo's location, never
                    the current directory, so the same command from a nested
@@ -32,6 +37,8 @@ Arguments:
                    keeps git's internal worktree names unambiguous.
   <branch>         With two arguments, the existing branch (or any commit-ish)
                    to check out. With three, the start point for <new_branch>.
+                   Omitted entirely, defaults to whatever the bare repo's HEAD
+                   points at (the remote's default branch, e.g. main).
   <new_branch>     Optional. When given, a branch by this name is created off
                    <branch> and checked out in the worktree.
 
@@ -44,20 +51,24 @@ Returns:
   to work around: park the other worktree first.
 
 Examples:
+  git wt-add wt1               # checkout the default branch in $root_path/wt1
   git wt-add wt1 main          # checkout main in $root_path/wt1
   git wt-add wt1 main feature  # create branch "feature" off main in $root_path/wt1
+  git wt-add -d wt1 main       # detached HEAD at main in $root_path/wt1
 EOF
 }
 
-while getopts ":h" opt; do
+DETACHED=0
+while getopts ":hd" opt; do
     case $opt in
         h) usage; exit 0 ;;
+        d) DETACHED=1 ;;
         \?) echo "Error: unknown option -$OPTARG" >&2; usage; exit 129 ;;
     esac
 done
 shift $((OPTIND - 1))
 
-if [[ $# -lt 2 || $# -gt 3 ]]; then
+if [[ $# -lt 1 || $# -gt 3 ]]; then
     usage
     exit 129
 fi
@@ -65,6 +76,11 @@ fi
 WORKTREE_NAME=$1
 BRANCH=$2
 NEW_BRANCH=$3
+
+if [[ $DETACHED -eq 1 && -n "$NEW_BRANCH" ]]; then
+    echo "Error: -d cannot be combined with <new_branch>" >&2
+    exit 129
+fi
 
 # Shell completion on a directory hands you "wt1/". That names the same
 # worktree, so trim trailing slashes rather than rejecting them below.
@@ -98,6 +114,13 @@ BARE_DIR=$(cd "$(git rev-parse --git-common-dir)" && pwd)
 PROJECT_ROOT="${BARE_DIR%/.git}"
 WORKTREE_PATH="${PROJECT_ROOT}/${WORKTREE_NAME}"
 
+# No <branch> given: default to whatever the bare repo's HEAD points at. Set
+# by `git seed` (or `git clone`) to the remote's default branch, so this is
+# main/master/whatever without us having to guess between them.
+if [[ -z "$BRANCH" ]]; then
+    BRANCH=$(git -C "$BARE_DIR" symbolic-ref --short HEAD)
+fi
+
 # This command only creates. A worktree that is already there keeps whatever it
 # has checked out, parked or not: changing that is `git switch`, run inside it.
 # The porcelain listing is the authority on what is a worktree of this repo --
@@ -121,6 +144,8 @@ fi
 
 if [[ -n "$NEW_BRANCH" ]]; then
     git worktree add -b "$NEW_BRANCH" "$WORKTREE_PATH" "$BRANCH" >&2
+elif [[ $DETACHED -eq 1 ]]; then
+    git worktree add --detach "$WORKTREE_PATH" "$BRANCH" >&2
 else
     git worktree add "$WORKTREE_PATH" "$BRANCH" >&2
 fi
