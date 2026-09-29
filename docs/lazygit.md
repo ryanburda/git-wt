@@ -1,9 +1,8 @@
 # lazygit
 
-[lazygit](https://github.com/jesseduffield/lazygit) has a worktrees panel, and
-these commands are worktree-shaped, so they wire up as custom commands with no
-glue. The panel becomes the whole cycle: create a worktree, prepare it, park it,
-keep it current, remove it.
+[lazygit](https://github.com/jesseduffield/lazygit) has a worktrees panel, and these
+commands are worktree-shaped, so they wire up as custom commands with no glue. The
+panel becomes the whole cycle: create a worktree, prepare it, park it, remove it.
 
 **Worktrees panel**
 
@@ -12,15 +11,6 @@ keep it current, remove it.
 | `a` | `git wt-add` | Prompts for worktree name, base branch, and an optional new branch |
 | `s` | `git wt-setup` | Runs the project's `.wt-setup/setup` hook in the selected worktree |
 | `p` | `git wt-park` | Parks the selected worktree at mainline: keeps the directory, frees its branch |
-| `d` | *(built-in)* | Removes the worktree — lazygit already runs `git worktree remove` |
-
-Removal has no custom binding because it needs none: lazygit's own `d` runs
-`git worktree remove`, which is the whole of that job. `p` is the one lazygit
-has no equivalent for — parking a worktree without tearing it down, and
-bringing an already-parked one up to mainline.
-
-Nothing installs these. `install.sh` only touches `~/.local/bin` and the
-completions; this is a snippet you paste into your own lazygit config.
 
 ## Config
 
