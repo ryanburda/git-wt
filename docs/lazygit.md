@@ -9,6 +9,7 @@ panel becomes the whole cycle: create a worktree, prepare it, park it, remove it
 | Key | Command | What it does |
 | --- | --- | --- |
 | `a` | `git wt-add` | Prompts for worktree name, base branch, and an optional new branch |
+| `A` | `git wt-add -d` | Prompts for worktree name only; creates it detached at the default branch |
 | `s` | `git wt-setup` | Runs the project's `.wt-setup/setup` hook in the selected worktree |
 | `p` | `git wt-park` | Parks the selected worktree at mainline: keeps the directory, frees its branch |
 
@@ -32,6 +33,14 @@ customCommands:
           preset: 'refs'
       - type: 'input'
         title: 'New branch name (blank to check out the base branch as-is)'
+  - key: 'A'
+    command: 'git wt-add -d "{{index .PromptResponses 0}}"'
+    context: 'worktrees'
+    description: 'Add a new worktree in detached HEAD state at the default branch (git wt-add -d)'
+    output: none
+    prompts:
+      - type: 'input'
+        title: 'Worktree name'
   - key: 's'
     command: 'git wt-setup "{{.SelectedWorktree.Path}}"'
     context: 'worktrees'
