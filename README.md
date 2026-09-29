@@ -143,7 +143,7 @@ rm -rf ~/.local/share/git-wt
 ## Completions
 
 `completions/` holds zsh and bash completions. `git wt-add` completes the
-`<branch>` argument, and all three `wt-` commands complete the repo's
+`<branch>` argument, and `git wt-park` and `git wt-setup` complete the repo's
 worktrees.
 
 ```

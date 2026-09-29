@@ -21,23 +21,6 @@ __git_wt_add_branches ()
 	} 2> /dev/null | grep -vx HEAD | sort -u
 }
 
-__git_wt_add_worktree_names ()
-{
-	local g=git
-	declare -f __git > /dev/null 2>&1 && g=__git
-
-	# <worktree_name> may name a worktree that does not exist yet, so this is a
-	# suggestion rather than the full set of valid answers: the worktrees that
-	# are already there, which `git wt-add` checks out into in place. The bare
-	# repo is skipped. A name, not a path, so report the last path segment.
-	$g worktree list --porcelain 2> /dev/null | awk '
-		/^worktree /{wt = substr($0, 10); bare = 0}
-		/^bare$/{bare = 1}
-		/^$/{if (wt != "" && !bare) print wt; wt = ""}
-		END{if (wt != "" && !bare) print wt}
-	' | sed 's|.*/||'
-}
-
 _git_wt_add ()
 {
 	local cur=${COMP_WORDS[COMP_CWORD]}
@@ -55,19 +38,18 @@ _git_wt_add ()
 	done
 
 	if [[ $cur == -* ]]; then
-		COMPREPLY=($(compgen -W "-f -h" -- "$cur"))
+		COMPREPLY=($(compgen -W "-h" -- "$cur"))
 		return
 	fi
 
-	# [-f] <worktree_name> <branch> [<new_branch>]: count only the non-option
-	# words before the cursor, so the arguments complete whether or not -f was
-	# given. <new_branch> is a name being invented, so it is not completable.
+	# <worktree_name> <branch> [<new_branch>]: count only the non-option words
+	# before the cursor. <worktree_name> must not exist yet and <new_branch> is a
+	# name being invented, so neither is completable -- only <branch> is.
 	for ((i = idx + 1; i < COMP_CWORD; i++)); do
 		[[ ${COMP_WORDS[i]} == -* ]] || ((args++))
 	done
 
 	case $args in
-	0) COMPREPLY=($(compgen -W "$(__git_wt_add_worktree_names)" -- "$cur")) ;;
 	1) COMPREPLY=($(compgen -W "$(__git_wt_add_branches)" -- "$cur")) ;;
 	*) COMPREPLY=() ;;
 	esac

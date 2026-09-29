@@ -24,7 +24,7 @@ compdef _git-wt-setup git-wt-setup
 # Offer the commands, with descriptions, when completing `git <TAB>`.
 zstyle ':completion:*:*:git:*' user-commands \
     seed:'clone a repo and create its first worktree in one step' \
-    wt-add:'put a branch in a worktree, creating the worktree if needed' \
+    wt-add:'create a worktree with a branch checked out' \
     wt-park:'park a worktree at the default branch, freeing its branch' \
     wt-setup:'run the project .wt-setup/setup hook in a worktree'
 

@@ -107,7 +107,16 @@ if [[ -z "$BRANCH" ]]; then
     BRANCH=$(git -C "$ROOT_PATH" symbolic-ref --short HEAD)
 fi
 
-WT=$(git -C "$ROOT_PATH" wt-add "$WORKTREE_NAME" "$BRANCH")
+WT="${ROOT_PATH}/${WORKTREE_NAME}"
+
+# `git wt-add` only creates, so on a re-run it would error on the worktree the
+# first run made. Skipping it keeps `git seed` re-runnable, the same way the
+# clone above is.
+if git -C "$ROOT_PATH" worktree list --porcelain | grep -qFx "worktree ${WT}"; then
+    echo "Worktree already exists at ${WT}, skipping." >&2
+else
+    WT=$(git -C "$ROOT_PATH" wt-add "$WORKTREE_NAME" "$BRANCH")
+fi
 
 if (( LOCK )); then
     # Already locked is the normal state on a re-run; `worktree lock` exits 128

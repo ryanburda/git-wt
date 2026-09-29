@@ -20,34 +20,12 @@ __git_wt_add_branches() {
   _describe -t branches branch branches
 }
 
-__git_wt_add_worktree_names() {
-  local -a parked attached
-  # <worktree_name> may name a worktree that does not exist yet, so these are
-  # suggestions rather than the full set of valid answers. The ones with no
-  # branch checked out come first: those are the parked worktrees waiting for a
-  # branch, which is what `git wt-add` is for. The bare repo has no checkout and
-  # is skipped. A name, not a path, so report the last path segment.
-  local awk_body='
-    /^worktree /{wt = substr($0, 10); branch = 0; bare = 0}
-    /^bare$/{bare = 1}
-    /^branch /{branch = 1}
-    /^$/{if (wt != "" && !bare && branch == want) print wt; wt = ""}
-    END{if (wt != "" && !bare && branch == want) print wt}
-  '
-  parked=(${(f)"$(git worktree list --porcelain 2>/dev/null | awk -v want=0 "$awk_body" | sed 's|.*/||')"})
-  attached=(${(f)"$(git worktree list --porcelain 2>/dev/null | awk -v want=1 "$awk_body" | sed 's|.*/||')"})
-  parked=(${parked:#})
-  attached=(${attached:#})
-
-  (( $#parked )) && _describe -t worktrees 'parked worktree' parked
-  (( $#attached )) && _describe -t worktrees 'worktree on a branch' attached
-}
-
 _git-wt-add() {
+  # <worktree_name> must not exist yet, so there is nothing to complete for it;
+  # the same goes for <new_branch>, a name being invented.
   _arguments -S \
-    '-f[check out into a worktree with modified or untracked files, discarding them]' \
     '-h[print help and exit]' \
-    '1:worktree name:__git_wt_add_worktree_names' \
+    '1:worktree name:' \
     '2:branch:__git_wt_add_branches' \
     '3:new branch:'
 }

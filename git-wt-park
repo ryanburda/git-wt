@@ -15,9 +15,9 @@ Removing the worktree frees the branch, but it also throws away anything that
 was setup using `git wt-setup`. So it detaches HEAD instead: the branch is free
 to check out elsewhere or delete, while the directory and everything in it stays put.
 
-  git wt-park wt1          # wt1 keeps its files; its branch is free
-  git branch -d feature    # ...so this now works
-  git wt-add wt1 main feature
+  git wt-park wt1            # wt1 keeps its files; its branch is free
+  git branch -d feature      # ...so this now works
+  git -C wt1 switch other    # ...and wt1 is ready for another branch
 
 Arguments:
   -n               No fetch. Park against the refs already in the repo.
@@ -107,7 +107,7 @@ if [[ -n "$WORKTREE_NAME" ]]; then
     # Unpruned worktree
     if [[ ! -d "$WORKTREE_PATH" ]]; then
         echo "Error: ${WORKTREE_PATH} is registered but its directory is missing" >&2
-        echo "Run 'git worktree prune' to clear it, or 'git wt-add' to grow it back." >&2
+        echo "Run 'git worktree prune' to clear it, then 'git wt-add' to grow it back." >&2
         exit 128
     fi
 elif ! WORKTREE_PATH=$(git rev-parse --show-toplevel 2>/dev/null); then
@@ -118,7 +118,6 @@ elif ! WORKTREE_PATH=$(git rev-parse --show-toplevel 2>/dev/null); then
     echo "Name the worktree to park: git wt-park <worktree_name>" >&2
     exit 128
 fi
-WORKTREE_NAME=${WORKTREE_PATH##*/}
 
 # Fetching is what makes "the latest commit on mainline" true, but it is the one
 # step that can fail for reasons that have nothing to do with this repo: being
@@ -189,7 +188,7 @@ git -C "$WORKTREE_PATH" -c advice.detachedHead=false \
 # trailing `[[ -n ... ]] && echo` would fail the script when there was no branch.
 if [[ -n "$CURRENT_BRANCH" ]]; then
     echo "Worktree ${WORKTREE_PATH} kept; branch '${CURRENT_BRANCH}' is free." >&2
-    echo "  put it back: git wt-add ${WORKTREE_NAME} ${CURRENT_BRANCH}" >&2
+    echo "  put it back: git -C ${WORKTREE_PATH} switch ${CURRENT_BRANCH}" >&2
     echo "$CURRENT_BRANCH"
 else
     echo "Worktree ${WORKTREE_PATH} moved: ${CURRENT_SHORT} -> ${TARGET_SHORT} (${DETACH_AT})." >&2

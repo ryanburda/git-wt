@@ -31,7 +31,7 @@ customCommands:
   - key: 'a'
     command: 'git wt-add "{{index .PromptResponses 0}}" "{{index .PromptResponses 1}}"{{if index .PromptResponses 2}} "{{index .PromptResponses 2}}"{{end}}'
     context: 'worktrees'
-    description: 'Put a branch in a worktree, creating the worktree if needed (wt-add)'
+    description: 'Create a worktree with a branch checked out (wt-add)'
     output: none
     prompts:
       - type: 'input'
