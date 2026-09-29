@@ -73,7 +73,7 @@ Arguments:
 
 Examples:
   cd ~/code/project_a/base && git wt-setup
-  git -C ~/code/project_a/base wt-setup
+  git wt-setup base
 EOF
 }
 

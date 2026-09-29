@@ -6,8 +6,8 @@ usage() {
 Usage:
   git seed [-b <branch>] [-w <worktree_name>] [-u] <repo_url> [<root_path>]
 
-The worktree-first version of `git clone`: clones a repo
-and creates its first worktree, in one step.
+The worktree-first version of `git clone`.
+Clones a repo and creates its first worktree, in one step.
 
   $<root_path>/
   ├── .git/        <- bare repo

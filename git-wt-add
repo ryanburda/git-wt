@@ -9,8 +9,7 @@ Usage:
 
 Create a new worktree.
 
-Works with `git seed` to enforce a repo
-folder structure that accommodates worktrees:
+Works with `git seed` to enforce a repo folder structure that accommodates worktrees:
 
   $root_path/
   ├── .git/              <- bare repo (created by seed)
