@@ -5,33 +5,56 @@
 Small wrappers around git that enforce a simple bare repo layout.
 
 ```sh
-# `git seed` is a worktree-first `git clone`. Just pass it a URL.
+# A worktree-first version of `git clone`. Just pass it a URL.
 git seed <url>
-
-# `git wt-add` creates a new worktree.
+# Create a new worktree.
 git wt-add <worktree-name> <existing-branch> [<new-branch>]
+# Run the setup hook against a worktree.
+git wt-setup <worktree-name>
+# Park a worktree, releasing the branch it was on.
+git wt-park <worktree-name>
 ```
 
 Example usage:
 ```sh
+# clone the repo and create first worktree.
 git seed git@github.com:user/project.git
 cd project
+
+# create wt1 and set it up.
 git wt-add wt1 main feature
+git wt-setup wt1
+
+# create wt2 and park it, releasing the branch.
+git wt-add wt2 main bugfix
+git wt-park wt2
 ```
 The commands above produce the following repo layout:
 
 ```
 ./project/
-├── .git/    <- bare repo              (created by `git seed`)
-├── base/    <- worktree on `main`     (created by `git seed`)
-└── wt1/     <- worktree on `feature`  (created by `git wt-add`)
+├── .git/    <- bare repo                   (created by `git seed`)
+├── base/    <- worktree on `main`          (created by `git seed`)
+└── wt1/     <- worktree on `feature`       (created by `git wt-add`)
+└── wt2/     <- worktree with detached HEAD (created by `git wt-add`)
 ```
 
-`git seed` will:
-- create the bare repo (`.git/`)
-- create and lock your first worktree (called `base` by default)
+- `git seed` creates the bare repo (`.git/`) and first locked worktree (`base`).
+- `git wt-add` creates worktrees `wt1` and `wt2`.
+- `git wt-setup` runs the setup hook against `wt1`.
+- `git wt-park` puts `wt2` in a detached HEAD state, freeing the `bugfix` branch.
 
-Future `git wt-add` calls put your worktrees alongside the one created by `git seed`.
+### Usage
+
+For full usage instructions run each command with the `-h` flag.
+
+```sh
+git seed -h
+git wt-add -h
+git wt-setup -h
+git wt-park -h
+```
+
 
 ## Why enforce a flat repo layout
 
@@ -116,156 +139,6 @@ rm ~/.local/bin/git-{seed,wt-add,wt-park,wt-setup}
 rm -rf ~/.local/share/git-wt
 ```
 
-## Usage
-
-### `git seed`
-
-A worktree-first `git clone`: clones a bare repo and creates its first
-worktree in one step.
-
-```
-git seed [-b <branch>] [-w <worktree_name>] [-u] <repo_url> [<root_path>]
-```
-
-| Flag | Default | Meaning |
-| --- | --- | --- |
-| `-b <branch>` | the remote's default branch | branch to check out |
-| `-w <name>` | `base` | worktree directory name |
-| `-u` | lock | leave the worktree unlocked |
-
-```sh
-git seed git@github.com:user/project_a.git
-```
-```
-project_a/
-├── .git/          <- bare repo
-└── base/          <- worktree, on the remote's default branch, locked
-```
-
-With no `<root_path>`, the project name is derived from the URL and created
-under the current directory, matching `git clone`. The branch comes from the
-remote's `HEAD`, so repos on `main` and repos on `master` both work without
-being told which. The worktree is locked, marking it as the project's
-"default" worktree.
-
-The project's `.wt-setup/setup` hook is *not* run. See [`git wt-setup`](#git-wt-setup).
-
-### `git wt-add`
-
-```
-git wt-add [-f] <worktree_name> <branch>               # check out an existing branch
-git wt-add [-f] <worktree_name> <branch> <new_branch>  # create new_branch off branch
-```
-
-```sh
-git wt-add wt1 main             # main checked out at <project_root>/wt1
-git wt-add wt1 main feature     # branch "feature" off main at <project_root>/wt1
-```
-
-`<worktree_name>` is a name, not a path. It's joined onto the project root, so
-you get the same worktree no matter where in the repo you run the command
-from.
-
-Calling `git wt-add` with a worktree name that already exists **does not** recreate it.
-Instead the branch is checked out on the existing worktree. This is helpful when resurrecting
-worktrees that were parked using [`git wt-park`](#git-wt-park).
-
-### `git wt-park`
-
-```
-git wt-park [-n] [-f] [<worktree_name>]                  # park it at mainline
-git wt-park [-n] [-f] -b <commit-ish> [<worktree_name>]  # park somewhere else
-```
-
-```sh
-git wt-park            # park the worktree you're standing in
-git wt-park wt1        # park <project_root>/wt1
-git wt-park -n wt1     # no fetch; something else already did one
-```
-
-A branch can only be checked out in one worktree at a time, so a worktree
-sitting idle on a branch holds that branch hostage. You can't check it out
-elsewhere and you can't delete it. Removing the worktree frees the branch, but
-it also throws away anything that was set up using [`git wt-setup`](#git-wt-setup).
-
-For cases like these were you want to free the branch and not remove the worktree,
-you can use `git wt-park`. This puts the worktree in a detached HEAD state, freeing
-the branch while also preserving your set up worktree for later use.
-
-```sh
-git wt-park wt1          # wt1 keeps its files; its branch is free
-git branch -d feature    # ...so this now works
-git wt-add wt1 main feature
-```
-
-#### Arguments
-
-`-n` skips the fetch, for callers that already did one — a lazygit binding that
-fetches first, a loop over several worktrees — so the network is paid for once
-rather than once per call.
-
-`-f` covers modified or untracked files and discards them; without it, either
-one is an error and nothing changes. A lock is irrelevant, since nothing is
-being removed: the `base` worktree `git seed` locks parks like any other. Files
-a setup hook drops in don't count as long as they're excluded — see
-[design_decisions.md](design_decisions.md#keeping-files-next-to-the-hook).
-
-`<worktree_name>` is optional. Without it, the command acts on the worktree
-you're standing in, the same default `git wt-setup` uses. A worktree that isn't
-there is an error rather than a no-op: there is nothing to park.
-
-The worktree's own path is printed on stdout:
-
-```sh
-cd "$(git wt-park wt1)"
-```
-
-### `git wt-setup`
-
-```
-git wt-setup [<worktree_path>]
-```
-
-Runs `<project_root>/.wt-setup/setup` from inside the given worktree, or the
-current one if no path is given.
-
-The hook is yours to write. Nothing creates it for you, and since
-`.wt-setup/` is untracked it doesn't arrive with a clone either. Until you put
-a file there, the command is a successful no-op:
-
-```
-$ git wt-setup
-No setup hook at /home/you/code/project_a/.wt-setup/setup; nothing to do.
-```
-
-Installing a hook is: make the directory, write the file, mark it executable.
-For most projects the file is one line:
-
-```sh
-mkdir -p ~/code/project_a/.wt-setup
-cat > ~/code/project_a/.wt-setup/setup <<'EOF'
-#!/bin/sh
-npm install
-EOF
-chmod +x ~/code/project_a/.wt-setup/setup
-```
-
-Every new worktree now gets its own `node_modules/` without you remembering to
-install anything:
-
-```sh
-git wt-add wt1 main
-git wt-setup wt1
-```
-
-The hook runs with the worktree as its working directory, so relative paths
-land inside it, and its exit status becomes the command's. Don't skip the
-`chmod +x`: the hook is executed, not sourced, so a `setup` that isn't
-executable is an error rather than an absent hook.
-
-`.wt-setup/` is also a good home for the untracked files each worktree needs,
-like a `.env` or a local config override, with the hook copying or symlinking
-them in.
 
 ## Completions
 
@@ -328,6 +201,7 @@ source ~/.local/share/git-wt/completions/bash/git-wt-setup
 ```
 
 </details>
+
 
 ## Lazygit
 
