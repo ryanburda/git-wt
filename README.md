@@ -17,17 +17,20 @@ git wt-park <worktree-name>
 
 Example usage:
 ```sh
-# clone the repo and create first worktree.
+# clone a repo and create a worktree in one step.
 git seed git@github.com:user/project.git
 cd project
 
-# create wt1 and set it up.
+# create `wt1` and set it up.
 git wt-add wt1 main feature
 git wt-setup wt1
 
-# create wt2 and park it, releasing the branch.
+# create `wt2` and park it. This puts the worktree in
+# a detached head state, releasing the branch without
+# needing to create or switch to a different branch.
 git wt-add wt2 main bugfix
 git wt-park wt2
+git branch -d bugfix
 ```
 The commands above produce the following repo layout:
 
@@ -42,7 +45,7 @@ The commands above produce the following repo layout:
 - `git seed` creates the bare repo (`.git/`) and first locked worktree (`base`).
 - `git wt-add` creates worktrees `wt1` and `wt2`.
 - `git wt-setup` runs the setup hook against `wt1`.
-- `git wt-park` puts `wt2` in a detached HEAD state, freeing the `bugfix` branch.
+- `git wt-park` puts `wt2` in a detached HEAD state, releasing the `bugfix` branch.
 
 ### Usage
 

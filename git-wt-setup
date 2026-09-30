@@ -4,7 +4,7 @@ set -e
 usage() {
     cat >&2 <<'EOF'
 Usage:
-  git wt-setup [<worktree_path>]
+  git wt-setup [<worktree_name>]
 
 Run the project's worktree setup hook against a worktree.
 
